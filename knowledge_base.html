@@ -1,0 +1,665 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>管理パネル 総合ナレッジベース</title>
+    <style>
+        :root {
+            /* サイドバー：視認性の高い明るい配色 */
+            --sidebar-bg: #f1f5f9;
+            --sidebar-border: #cbd5e1;
+            --sidebar-text: #1e293b;
+            --sidebar-hover: #e2e8f0;
+            --sidebar-active-bg: #ffffff;
+            
+            --text-color: #334155;
+            --bg-color: #f8fafc;
+            --accent: #2563eb;
+            --warning-bg: #fef2f2;
+            --warning-border: #ef4444;
+            --warning-text: #b91c1c;
+            --note-bg: #eff6ff;
+            --note-border: #3b82f6;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            margin: 0;
+            display: flex;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            line-height: 1.6;
+        }
+
+        /* サイドバー */
+        .sidebar {
+            width: 280px;
+            background: var(--sidebar-bg);
+            color: var(--sidebar-text);
+            height: 100vh;
+            position: fixed;
+            overflow-y: auto;
+            border-right: 1px solid var(--sidebar-border);
+            z-index: 100;
+        }
+
+        .sidebar h2 {
+            text-align: center;
+            font-size: 1.1rem;
+            padding: 25px 20px;
+            margin: 0;
+            background: #ffffff;
+            border-bottom: 1px solid var(--sidebar-border);
+            color: var(--accent);
+        }
+
+        .nav-menu {
+            list-style: none;
+            padding: 10px 0;
+            margin: 0;
+        }
+
+        .nav-menu li {
+            padding: 14px 20px;
+            cursor: pointer;
+            border-bottom: 1px solid rgba(0,0,0,0.05);
+            transition: all 0.2s;
+            font-size: 0.95rem;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-weight: 500;
+        }
+
+        .nav-menu li:hover {
+            background: var(--sidebar-hover);
+        }
+
+        .nav-menu li.active {
+            background: var(--sidebar-active-bg);
+            color: var(--accent);
+            border-left: 5px solid var(--accent);
+            box-shadow: inset 0 0 10px rgba(0,0,0,0.02);
+        }
+
+        /* メインコンテンツ */
+        .main-content {
+            margin-left: 280px;
+            padding: 40px 60px;
+            width: calc(100% - 280px);
+            box-sizing: border-box;
+            max-width: 1200px;
+        }
+
+        .kb-section {
+            display: none;
+            background: white;
+            padding: 40px;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.05);
+            animation: fadeIn 0.3s ease-in-out;
+        }
+
+        .kb-section.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        h1 {
+            color: #0f172a;
+            border-bottom: 3px solid var(--accent);
+            padding-bottom: 12px;
+            margin-top: 0;
+            font-size: 1.8rem;
+        }
+
+        h2 {
+            color: #1e293b;
+            margin-top: 35px;
+            border-left: 5px solid var(--accent);
+            padding-left: 15px;
+            font-size: 1.4rem;
+        }
+
+        h3 {
+            color: #334155;
+            font-size: 1.15rem;
+            margin-top: 25px;
+        }
+
+        .img-ref {
+            display: inline-block;
+            background: #e2e8f0;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 0.85rem;
+            color: #1e293b;
+            font-weight: bold;
+            margin: 0 4px;
+        }
+
+        /* アラート・ステータス表示 */
+        .alert-warning {
+            background: var(--warning-bg);
+            border-left: 5px solid var(--warning-border);
+            padding: 18px 20px;
+            margin: 25px 0;
+            color: var(--warning-text);
+            border-radius: 0 8px 8px 0;
+            font-weight: bold;
+        }
+
+        .alert-note {
+            background: var(--note-bg);
+            border-left: 5px solid var(--note-border);
+            padding: 18px 20px;
+            margin: 25px 0;
+            color: #1e3a8a;
+            border-radius: 0 8px 8px 0;
+        }
+
+        .status-legend {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            margin: 15px 0;
+            padding: 15px;
+            background: #f8fafc;
+            border-radius: 8px;
+            border: 1px solid #e2e8f0;
+        }
+
+        .status-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-weight: bold;
+        }
+
+        .dot { width: 12px; height: 12px; border-radius: 50%; display: inline-block; }
+        .dot-yellow { background: #fbbf24; }
+        .dot-green { background: #22c55e; }
+        .dot-orange { background: #f97316; }
+        .dot-red { background: #ef4444; }
+
+        .step-box {
+            background: #fff;
+            border: 1px solid #e2e8f0;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 15px 0;
+        }
+
+        /* 画像スタイル */
+        .img-box {
+            max-width: 100%;
+            margin: 30px 0;
+            text-align: center;
+            background: #f8fafc;
+            padding: 20px;
+            border-radius: 12px;
+            border: 1px solid #e2e8f0;
+        }
+
+        .img-box img {
+            max-width: 100%;
+            height: auto;
+            border: 1px solid #cbd5e1;
+            border-radius: 6px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.08);
+        }
+
+        .img-caption {
+            display: block;
+            margin-top: 12px;
+            font-size: 1rem;
+            color: #334155;
+            font-weight: bold;
+        }
+
+        .link-btn {
+            display: inline-block;
+            background: var(--accent);
+            color: white;
+            padding: 10px 20px;
+            text-decoration: none;
+            border-radius: 6px;
+            font-weight: 600;
+            margin-top: 10px;
+            transition: background 0.2s;
+        }
+        .link-btn:hover { background: #1d4ed8; }
+
+        code {
+            background: #f1f5f9;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: monospace;
+            color: #be123c;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+
+<div class="sidebar">
+    <h2>📚 総合ナレッジ</h2>
+    <ul class="nav-menu">
+        <li class="active" onclick="switchTab(event, 'machine-map')">🗺️ マシンマップ</li>
+        <li onclick="switchTab(event, 'machine-settings')">⚙️ マシンセッティング</li>
+        <li onclick="switchTab(event, 'live-settings')">🎥 ライブ配信設定</li>
+        <li onclick="switchTab(event, 'lan-config')">🔌 LANコンフィグ</li>
+        <li onclick="switchTab(event, 'user-management')">👤 ユーザー管理</li>
+        <li onclick="switchTab(event, 'add-account')">📧 アカウント増枠</li>
+        <li onclick="switchTab(event, 'booth-log')">📝 ブースログ設定</li>
+    </ul>
+</div>
+
+<div class="main-content">
+
+    <div id="machine-map" class="kb-section active">
+        <h1>マシンマップの操作と確認</h1>
+        <p>①の「マシンマネジメント」をクリックすると<span class="img-ref">画像A</span>「マシンマップ」「マシンセッティング」「ゲームプレイタイプ」が出現しますが、現時点で触れるのは「マシンマップ」と「マシンセッティング」のみです。</p>
+        
+        <div class="img-box">
+            <img src="マシンマップ_画像A.jpg" alt="マシンマップ画像A">
+            <span class="img-caption">【画像A】</span>
+        </div>
+        
+        <h2>ブース詳細の確認手順</h2>
+        <div class="step-box">
+            <p>「マシンマップ」を開くと各ブース情報が表示されます。さらにブースごとの詳細を見るには、<strong>何も文字等がない部分をクリック</strong>してください。<br>
+            ※クリックしてはいけない場所があるので注意してください。<br>
+            クリックすると<span class="img-ref">画像C</span>が表示されます。</p>
+        </div>
+
+        <div class="img-box">
+            <img src="マシンマップ_画像B.jpg" alt="マシンマップ画像B">
+            <span class="img-caption">【画像B】</span>
+        </div>
+        <div class="img-box">
+            <img src="マシンマップ_画像C.jpg" alt="マシンマップ画像C">
+            <span class="img-caption">【画像C】</span>
+        </div>
+
+        <h2>詳細画面の項目説明</h2>
+        <ul>
+            <li><strong>①ブースアドレス（ID）:</strong> アンドロイドボードを交換した時や、LANコンフィグ変更の際に必要になります。</li>
+            <li><strong>②メンテナンススイッチ:</strong> クリックでメンテナンス状態に入り、再度クリックで解除されます。</li>
+            <li><strong>③ブースダイレクション:</strong> 右開きか左開きかの変更が出来ますが、<strong>基本触りません。</strong></li>
+            <li><strong>④フロント、サイドカメラ:</strong> <span class="img-ref">画像B</span>のカメラ映像が見れます（UIと表示範囲が違うので注意）。ここでクロマキー等も可能ですが、クロマキーアプリが別であるので基本使いません。</li>
+        </ul>
+
+        <h2>エラーログと注意事項</h2>
+        <p><span class="img-ref">画像D</span>の赤丸をクリックすると<span class="img-ref">画像E</span>のエラーログ確認画面が見れます。</p>
+        
+        <div class="img-box">
+            <img src="マシンマップ_画像D.jpg" alt="マシンマップ画像D">
+            <span class="img-caption">【画像D】</span>
+        </div>
+        <div class="img-box">
+            <img src="マシンマップ_画像E.jpg" alt="マシンマップ画像E">
+            <span class="img-caption">【画像E】</span>
+        </div>
+
+        <div class="alert-warning">
+            【厳重注意】<br>
+            ※画像Dの✖印をクリックしてしまうと、ブースが強制再起動してしまうので基本絶対押さないでください。
+        </div>
+
+        <h3>ソート機能とエラー詳細</h3>
+        <p><span class="img-ref">画像F</span>の<strong>赤線部分</strong>をクリックすることでソートが可能です。また、<strong>赤丸</strong>をクリックするとエラーの詳細を確認できます。</p>
+        <div class="img-box">
+            <img src="マシンマップ_画像F.jpg" alt="マシンマップ画像F">
+            <span class="img-caption">【画像F】</span>
+        </div>
+
+        <h3>ブース状態の判別（色別）</h3>
+        <p><span class="img-ref">画像G</span>では、ブースの状態が色分けされて表示されます。</p>
+        <div class="status-legend">
+            <div class="status-item"><span class="dot dot-yellow"></span> 黄色：獲得</div>
+            <div class="status-item"><span class="dot dot-green"></span> 緑色：プレイ中</div>
+            <div class="status-item"><span class="dot dot-orange"></span> オレンジ：メンテナンス中</div>
+            <div class="status-item"><span class="dot dot-red"></span> 赤色：エラー</div>
+        </div>
+        <div class="img-box">
+            <img src="マシンマップ_画像G.jpg" alt="マシンマップ画像G">
+            <span class="img-caption">【画像G】</span>
+        </div>
+    </div>
+
+    <div id="machine-settings" class="kb-section">
+        <h1>マシンセッティング</h1>
+        <p>「マシンセッティング」をクリックすると<span class="img-ref">画像A</span>が表示されます。この画面で各ブースの状況を一覧・設定できます。</p>
+        
+        <div class="img-box">
+            <img src="マシンセッティング_画像A.jpg" alt="マシンセッティング画像A">
+            <span class="img-caption">【画像A】</span>
+        </div>
+
+        <h2>確認できるステータス</h2>
+        <p>この画面では各ブースの以下の情報が分かります。</p>
+        <ul>
+            <li><strong>ID</strong></li>
+            <li><strong>ゲームプレイタイプ</strong>（Bridge Style、Ring Catcher 等）</li>
+            <li><strong>ゲームモード</strong>（PVE、PVESingle Play 等）</li>
+            <li><strong>接続状態</strong>（Connected、Disconnected 等）</li>
+        </ul>
+
+        <div class="alert-note">
+            赤丸①で<span class="img-ref">画像B</span>のようにそれぞれソート出来ます。<br>
+            <strong>※注意:</strong> 赤丸①をここで変更すると、実際のブースステータスも変わるので気をつけてください。
+        </div>
+
+        <div class="img-box">
+            <img src="マシンセッティング_画像B.jpg" alt="マシンセッティング画像B">
+            <span class="img-caption">【画像B】</span>
+        </div>
+
+        <h2>プレイ設定の手順</h2>
+        <div class="step-box">
+            <ol>
+                <li><span class="img-ref">画像A</span>の赤丸を押すと<span class="img-ref">画像C</span>が出てきます。</li>
+                <li><span class="img-ref">画像C</span>の赤丸②部分を、<span class="img-ref">画像D</span>（別紙参照）の赤丸と同じ設定にします。</li>
+                <li><span class="img-ref">画像E</span>（別紙参照）のようなプライズを選んだ時に、そのブースをプレイ出来るようになります。</li>
+            </ol>
+        </div>
+
+        <div class="img-box">
+            <img src="マシンセッティング_画像C.jpg" alt="マシンセッティング画像C">
+            <span class="img-caption">【画像C】</span>
+        </div>
+        <div class="img-box">
+            <img src="マシンセッティング_画像D.jpg" alt="マシンセッティング画像D">
+            <span class="img-caption">【画像D】</span>
+        </div>
+        <div class="img-box">
+            <img src="マシンセッティング_画像E.jpg" alt="マシンセッティング画像E">
+            <span class="img-caption">【画像E】</span>
+        </div>
+
+        <h2>一括変更と注意事項</h2>
+        <ul>
+            <li>チェックボックスにチェックを入れると、まとめてステータスを変更できます。</li>
+            <li>パワーやスピード等は<strong>基本変えません。</strong></li>
+        </ul>
+
+        <div class="img-box">
+            <img src="マシンセッティング_画像F.jpg" alt="マシンセッティング画像F">
+            <span class="img-caption">【画像F】</span>
+        </div>
+    </div>
+
+    <div id="live-settings" class="kb-section">
+        <h1>ライブ配信セッティング</h1>
+        
+        <h2>① Booth Type 等の確認・変更</h2>
+        <p>Machine Settingsから対象台の編集ページを開き、「Booth Type」「Gameplay Type」「Dedicated to」を確認・変更します。</p>
+        
+        <div class="img-box">
+            <img src="ライブ配信セッティング_画像1.jpg" alt="ライブ配信セッティング画像1">
+            <span class="img-caption">【画像1】</span>
+        </div>
+
+        <div class="step-box">
+            <h3>Booth Typeの対応表</h3>
+            <ul>
+                <li><strong>じかおき:</strong> 3claws + Direct Drop</li>
+                <li><strong>橋渡し:</strong> 2claws + Bridge Style</li>
+                <li><strong>ペラ輪:</strong> 2claws + Ring Catcher</li>
+                <li><strong>たこやき:</strong> 3claws + Takoyaki Drop</li>
+            </ul>
+        </div>
+
+        <h2>② Dedicated to (PVE / PVPの選択)</h2>
+        <div class="step-box">
+            <h3>ストリーマー向け（かま子さんのシングルプレイ配信時等）</h3>
+            <ul>
+                <li><strong>配信時:</strong> 「PVE」に設定し、「For streamer」を<strong>ON（ピンク色）</strong>にする。</li>
+                <li><strong>PVPの時:</strong> OFFにする。</li>
+                <li>設定後、忘れずに<strong>SAVE</strong>を押す。</li>
+            </ul>
+            <p>※配信時は、お客さんが分かるようにアリーナ名を変更します。</p>
+        </div>
+
+        <div class="img-box">
+            <img src="ライブ配信セッティング_画像2.jpg" alt="ライブ配信セッティング画像2">
+            <span class="img-caption">【画像2】</span>
+        </div>
+
+        <h2>③ プライズ・バトルアリーナの設定</h2>
+        <div class="step-box">
+            <ol>
+                <li><code>Prize ＞ Battle Arena</code> を開く。</li>
+                <li>使用するプライズの編集ボタンを押す。</li>
+            </ol>
+            <div class="alert-note">
+                <strong>【編集条件と使用プライズ】</strong><br>
+                ・OFF時のみ編集可能です。<br>
+                ・誰かがプレイ中の場合はON→OFFにできません。<br>
+                ・現状、配信用は「Treasure Box Lv.0」を使用します。
+            </div>
+        </div>
+
+        <div class="img-box">
+            <img src="ライブ配信セッティング_画像3.jpg" alt="ライブ配信セッティング画像3">
+            <span class="img-caption">【画像3】</span>
+        </div>
+        <div class="img-box">
+            <img src="ライブ配信セッティング_画像4_1.jpg" alt="ライブ配信セッティング画像4_1">
+            <span class="img-caption">【画像4_1】</span>
+        </div>
+        <div class="img-box">
+            <img src="ライブ配信セッティング_画像4_2.jpg" alt="ライブ配信セッティング画像4_2">
+            <span class="img-caption">【画像4_2】</span>
+        </div>
+
+        <h2>④ ストリーマー向け詳細設定</h2>
+        <div class="step-box">
+            <ul>
+                <li><strong>シングルプレイ配信（かま子さん等）:</strong> 「PVE」に設定し、<strong>For streamerをON（ピンク色）</strong>にします。</li>
+                <li><strong>PVP（対戦）の時:</strong> <strong>OFF</strong>にします。</li>
+                <li><strong>アリーナ名の変更:</strong> 配信時はお客さんが分かる名前に変更します（名称はその都度かま子さんと相談）。
+                    <ul>
+                        <li><strong style="color: #be123c;">重要:</strong> English側のアリーナ名にも適当な英語（<code>abc</code>等でOK）を入れないと<strong>保存されません。</strong></li>
+                    </ul>
+                </li>
+                <li><strong>コピートレードチケット:</strong> シンクロありの場合は<strong>ON</strong>にします。</li>
+                <li><strong>整合性:</strong> ブースタイプ、ゲームプレイタイプを①で設定した状態と同じにします。</li>
+                <li>設定が終わったら必ず <strong>SAVE</strong> を押してください。</li>
+            </ul>
+        </div>
+
+        <h2>⑤ ⑥ アプリ表示（Status）の切り替え</h2>
+        <div class="step-box">
+            <ul>
+                <li><strong>表示する:</strong> <strong>StatusをON</strong>にするとアプリ上に表示されます。</li>
+                <li><strong>非表示にする:</strong> <strong>StatusをOFF</strong>にするとアプリ上から消えます。</li>
+            </ul>
+        </div>
+        
+        <div class="img-box">
+            <img src="ライブ配信セッティング_画像5.jpg" alt="ライブ配信セッティング画像5">
+            <span class="img-caption">【画像5】</span>
+        </div>
+    </div>
+
+    <div id="lan-config" class="kb-section">
+        <h1>LANコンフィグ関係（ボード入れ替え時）</h1>
+        
+        <div class="alert-warning">
+            <strong>事前準備の重要性</strong><br>
+            元々ついていたアンドロイドボードの管理パネル表示を消さないと、付け替えた後管理パネルに元のIDが残ってしまい、そこに新しいIDを入れられなくなります。付け替え前（もしくは付け替えて完全に入れ替えが確定した際）に、<strong>元のIDが入ってる場所を空けておく</strong>必要があります。
+        </div>
+
+        <h2>アンドロイドボード入れ替え手順</h2>
+        <div class="step-box">
+            <ol>
+                <li>マシンセッティングで適当に筐体を選んでマシングループ（該当の筐体が空いてるか）をチェック。空いてなければ「Eグループ」に逃がす。<strong>→ここで確実に逃がせたか確認！</strong></li>
+                <li>元のアンドロイドボードを繋げて、一旦管理パネルに反映させる（※現時点で管理パネルのIDが付け替え前のIDのままであれば繋がなくてOK）。</li>
+                <li>入れ替えた新しいボードのIDに変えて割り当て直す。<strong>→ここでブース（ID）を変えてもらわないと割り当てられないので注意。</strong>（初めて割り当てる場合はマシンセッティングから「new」で作る）</li>
+            </ol>
+        </div>
+        <p>☆ アンドロイドボード諸々出来たら… 忘れずに <strong>Any Desk</strong> を入れる。</p>
+
+        <h2>☆ 環境割り当て時、起こりうる事と対処法</h2>
+        <p>クロマキー用アプリに表示されていない（ブラックになってるのではなく全くない）場合、まずはその筐体の電源が入っているか確認してください。</p>
+        <div class="step-box">
+            <ol>
+                <li>ランコンフィグを確認してアドレス、IP等が合っているか確認する。</li>
+                <li>管理画面でその筐体を「NEW」で登録する。</li>
+                <li><strong>【注意】</strong>その時、A1、C2等の番号も確認して登録しないと変な所に入ってしまうので注意。</li>
+            </ol>
+            <p>※筐体番号は、管理画面にある筐体の「ポジション」の隣の番号をクリックすると変更可能です！</p>
+        </div>
+    </div>
+
+    <div id="user-management" class="kb-section">
+        <h1>ユーザーマネジメント</h1>
+        <p>※主にユーザーへの<strong>ポイント付与</strong>で使用します。</p>
+
+        <h2>ポイント付与手順</h2>
+        <div class="step-box">
+            <ol>
+                <li>検索窓（①）にユーザーアカウントを入力して「search」を押す。</li>
+                <li>対象アカウントの左側チェックボックスにチェックを入れる。</li>
+                <li>上部の「Transfer(黒いボタン)」を押して、<code>point</code> か <code>ticket</code> を選択する。</li>
+                <li>（ポイント付与のやり方）「Transfer(黒いボタン)」を押し、<strong>Transfer point in game</strong> を選択する。</li>
+                <li>付与する項目に数値を入力する（<strong>他は0にする</strong>）。</li>
+            </ol>
+        </div>
+
+        <div class="img-box">
+            <img src="ユーザーマネジメント_画像1.jpg" alt="ユーザーマネジメント画像1">
+            <span class="img-caption">【画像1】</span>
+        </div>
+        <div class="img-box">
+            <img src="ユーザーマネジメント_画像2.jpg" alt="ユーザーマネジメント画像2">
+            <span class="img-caption">【画像2】</span>
+        </div>
+        <div class="img-box">
+            <img src="ユーザーマネジメント_画像3.jpg" alt="ユーザーマネジメント画像3">
+            <span class="img-caption">【画像3】</span>
+        </div>
+    </div>
+
+    <div id="add-account" class="kb-section">
+        <h1>アカウント（メールアドレス）を増やす</h1>
+
+        <h2>設定手順</h2>
+        <div class="img-box">
+            <img src="アカウント(メールアドレス)を増やす_画像A.jpg" alt="アカウント増枠画像A">
+            <span class="img-caption">【画像A】</span>
+        </div>
+
+        <div class="step-box">
+            <ol>
+                <li><code>bth.kenshou@gmail.com</code> のGメールを開き、左端の欄から「もっと見る」をクリックして、<span class="img-ref">画像B</span>の「ラベルの管理」をクリック。（<span class="img-ref">画像A</span>参照）</li>
+                <li><span class="img-ref">画像C</span>の「アカウントとインポート」をクリックして、<span class="img-ref">画像D</span>の「他のメールアドレスを追加」をクリック。</li>
+                <li>名前は「テスト」等テキトーに入れて、メールアドレスに増やしたいアドレス（例: <code>bth.kenshou+44@gmail.com</code> 等）を入力する。<br>
+                「別の返信先アドレスを指定」を開いて、そこに <code>bth.kenshou@gmail.com</code> を入れておく。</li>
+                <li>最後に「次のステップ」をクリックするとメールアドレスが作成できる。</li>
+            </ol>
+        </div>
+
+        <div class="img-box">
+            <img src="アカウント(メールアドレス)を増やす_画像B.jpg" alt="アカウント増枠画像B">
+            <span class="img-caption">【画像B】</span>
+        </div>
+        <div class="img-box">
+            <img src="アカウント(メールアドレス)を増やす_画像C.jpg" alt="アカウント増枠画像C">
+            <span class="img-caption">【画像C】</span>
+        </div>
+        <div class="img-box">
+            <img src="アカウント(メールアドレス)を増やす_画像D.jpg" alt="アカウント増枠画像D">
+            <span class="img-caption">【画像D】</span>
+        </div>
+
+        <div class="alert-warning">
+            <strong>※注意</strong><br>
+            古いアドレスは誰かが使っている可能性があるので消去しないこと。
+        </div>
+
+        <div class="img-box">
+            <img src="アカウント(メールアドレス)を増やす_画像E.jpg" alt="アカウント増枠画像E">
+            <span class="img-caption">【画像E】</span>
+        </div>
+        <div class="img-box">
+            <img src="アカウント(メールアドレス)を増やす_画像F.jpg" alt="アカウント増枠画像F">
+            <span class="img-caption">【画像F】</span>
+        </div>
+    </div>
+
+    <div id="booth-log" class="kb-section">
+        <h1>ブースログ設定</h1>
+        <p>BAPから「ブースログの確認がしたい」と連絡が来た際に行う手順です。</p>
+
+        <h2>設定手順</h2>
+        <div class="step-box">
+            <ol>
+                <li>ブースにモニターとマウスを接続する。（モニターとマウスの端子は筐体に直接挿す）</li>
+                <li>設定 →「More Setting」を開く。</li>
+                <li>「debug」をクリックする。</li>
+                <li>「net adb」に ✅（チェック）を入れる。</li>
+            </ol>
+            <div class="alert-note">
+                ④の後は、<strong>BAPから作業終了の連絡があるまで放置</strong>してください。
+            </div>
+        </div>
+
+        <div class="img-box">
+            <img src="ブースログ設定_画像1.jpg" alt="ブースログ設定画像1">
+            <span class="img-caption">【画像1】</span>
+        </div>
+        <div class="img-box">
+            <img src="ブースログ設定_画像2.jpg" alt="ブースログ設定画像2">
+            <span class="img-caption">【画像2】</span>
+        </div>
+        <div class="img-box">
+            <img src="ブースログ設定_画像3.jpg" alt="ブースログ設定画像3">
+            <span class="img-caption">【画像3】</span>
+        </div>
+        <div class="img-box">
+            <img src="ブースログ設定_画像4.jpg" alt="ブースログ設定画像4">
+            <span class="img-caption">【画像4】</span>
+        </div>
+        <div class="img-box">
+            <img src="ブースログ設定_画像5.jpg" alt="ブースログ設定画像5">
+            <span class="img-caption">【画像5】</span>
+        </div>
+
+        <h3>📽️ 手順参考動画</h3>
+        <a href="https://drive.google.com/file/d/1wfHvjGG0X4aJPg7CfZY8OKOQ6dLjE9WF/view?usp=sharing" target="_blank" class="link-btn">📽️ 参考動画を確認する</a>
+    </div>
+
+</div>
+
+<script>
+    // タブ切り替え用スクリプト
+    function switchTab(event, targetId) {
+        // メニューのアクティブ状態をリセット
+        document.querySelectorAll('.nav-menu li').forEach(li => {
+            li.classList.remove('active');
+        });
+        // クリックされたメニューをアクティブに
+        event.currentTarget.classList.add('active');
+
+        // 全セクションを非表示
+        document.querySelectorAll('.kb-section').forEach(section => {
+            section.classList.remove('active');
+        });
+        // 対象のセクションを表示
+        document.getElementById(targetId).classList.add('active');
+        
+        // 上部にスクロール
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+</script>
+
+</body>
+</html>

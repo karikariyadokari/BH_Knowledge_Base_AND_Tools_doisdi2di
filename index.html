@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>バウンティハンターズ 運営ポータル</title>
+    <style>
+        :root {
+            --primary: #1a73e8;
+            --dark: #202124;
+            --bg: #f8f9fa;
+            --card-hover: #ffffff;
+        }
+
+        body {
+            font-family: 'Helvetica Neue', Arial, "Hiragino Kaku Gothic ProN", "Hiragino Sans", sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: var(--bg);
+            color: var(--dark);
+        }
+
+        /* ヘッダーデザイン */
+        header {
+            background-color: #fff;
+            color: var(--dark);
+            padding: 15px 40px;
+            display: flex;
+            align-items: center;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.08);
+            border-bottom: 1px solid #dadce0;
+        }
+
+        .logo-area {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .logo-img {
+            width: 45px;
+            height: 45px;
+            border-radius: 8px;
+            object-fit: cover;
+        }
+
+        .header-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+        }
+
+        /* メインコンテンツ */
+        main {
+            max-width: 1000px;
+            margin: 60px auto;
+            padding: 0 20px;
+        }
+
+        .welcome-msg {
+            text-align: center;
+            margin-bottom: 50px;
+        }
+
+        .welcome-msg h2 {
+            font-size: 2rem;
+            margin-bottom: 10px;
+            color: var(--dark);
+        }
+
+        .welcome-msg p {
+            color: #5f6368;
+        }
+
+        /* ナビゲーションカード */
+        .nav-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 25px;
+        }
+
+        .nav-card {
+            background: #fff;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 30px;
+            text-decoration: none;
+            color: inherit;
+            transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        .nav-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+            border-color: var(--primary);
+        }
+
+        .icon {
+            font-size: 40px;
+            margin-bottom: 15px;
+        }
+
+        .card-title {
+            font-size: 1.2rem;
+            font-weight: bold;
+            margin-bottom: 10px;
+            color: var(--primary);
+        }
+
+        .card-desc {
+            font-size: 0.9rem;
+            color: #5f6368;
+            line-height: 1.5;
+        }
+
+        footer {
+            text-align: center;
+            margin-top: 80px;
+            padding-bottom: 40px;
+            font-size: 0.8rem;
+            color: #9aa0a6;
+        }
+
+        @media (max-width: 600px) {
+            header { padding: 10px 20px; }
+            .nav-grid { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <div class="logo-area">
+        <img src="channels4_profile.jpg" alt="Logo" class="logo-img">
+        <div class="header-title">バウンティハンターズ 運営管制システム</div>
+    </div>
+</header>
+
+<main>
+    <div class="welcome-msg">
+        <h2>Operations Portal</h2>
+        <p>業務に必要なツールを選択してください</p>
+    </div>
+
+    <div class="nav-grid">
+        <a href="knowledge_base.html" class="nav-card">
+            <div class="icon">📖</div>
+            <div class="card-title">運営マニュアル</div>
+            <div class="card-desc">CS対応フローやマシンのトラブルシューティング、基本仕様を確認します。</div>
+        </a>
+
+        <a href="analysis.html" class="nav-card">
+            <div class="icon">📈</div>
+            <div class="card-title">ブース稼働分析</div>
+            <div class="card-desc">CSVログをアップロードし、獲得手数、アシスト率、エラー状況を可視化します。</div>
+        </a>
+
+        <a href="https://karikariyadokari.github.io/BH_CS_Test_dqdnwind22eda" class="nav-card" target="_blank">
+            <div class="icon">💬</div>
+            <div class="card-title">CSテンプレート管理</div>
+            <div class="card-desc">問い合わせへの返信テンプレートの検索、自動タグ付け、管理を行います。</div>
+        </a>
+    </div>
+</main>
+
+<footer>
+    &copy; 2026 Bounty Hunters Support Operations. All Rights Reserved.
+</footer>
+
+</body>
+</html>

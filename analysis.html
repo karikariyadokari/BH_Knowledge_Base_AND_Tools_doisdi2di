@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>Bounty Hunters 稼働分析ツール v4</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <style>
+        :root {
+            --primary: #1a73e8; --bg: #f4f7f9; --win: #28a745;
+            --assist: #f39c12; --error: #dc3545; --text: #3c4043; --border: #dee2e6;
+        }
+        body { font-family: 'Helvetica Neue', Arial, sans-serif; background-color: var(--bg); color: var(--text); margin: 0; padding: 20px; }
+        .container { max-width: 1300px; margin: 0 auto; }
+        
+        header { background: #fff; padding: 25px; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); margin-bottom: 25px; position: relative; }
+        h1 { margin: 0 0 20px 0; font-size: 1.4rem; color: var(--primary); display: flex; align-items: center; }
+        h1::before { content: "📊"; margin-right: 10px; }
+
+        .sort-control { position: absolute; top: 25px; right: 25px; display: flex; align-items: center; gap: 10px; font-weight: bold; color: #5f6368; }
+        .sort-select { padding: 6px 12px; border: 1px solid var(--border); border-radius: 6px; font-size: 14px; outline: none; cursor: pointer; }
+
+        .upload-area { border: 2px dashed #cbd5e0; padding: 30px; text-align: center; background: #f8fbff; border-radius: 10px; cursor: pointer; transition: 0.3s; }
+        .upload-area:hover { border-color: var(--primary); background: #f0f7ff; }
+
+        .controls { display: flex; gap: 10px; margin-top: 20px; }
+        .btn { padding: 10px 18px; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 13px; transition: 0.2s; }
+        .btn-blue { background: var(--primary); color: white; }
+        .btn-outline { background: white; border: 1px solid var(--border); color: #5f6368; }
+        .btn:hover { opacity: 0.8; transform: translateY(-1px); }
+
+        .machine-card { background: white; border: 1px solid var(--border); border-radius: 10px; margin-bottom: 15px; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
+        .machine-header { padding: 18px 25px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; background: #fff; border-radius: 10px; }
+        .machine-header:hover { background: #fafafa; }
+        .name-section { display: flex; align-items: center; gap: 15px; }
+        .rename-input { border: 1px solid transparent; font-size: 1.1rem; font-weight: bold; padding: 5px 10px; width: 200px; border-radius: 4px; color: #202124; }
+        .rename-input:focus { border-color: var(--primary); background: #fff; outline: none; }
+        .mac-label { color: #80868b; font-family: monospace; font-size: 0.85rem; }
+
+        .quick-stats { display: flex; gap: 20px; align-items: center; }
+        .q-item { text-align: center; line-height: 1.2; }
+        .q-label { font-size: 11px; color: #70757a; display: block; margin-bottom: 2px; }
+        .q-val { font-size: 15px; font-weight: bold; }
+
+        .machine-content { display: none; padding: 0 25px 25px 25px; border-top: 1px solid #f1f3f4; background: #fff; border-radius: 0 0 10px 10px; }
+        .is-open .machine-content { display: block; }
+        .table-controls { display: flex; justify-content: flex-end; padding: 15px 0; }
+
+        table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        th { background: #f8f9fa; color: #5f6368; font-weight: 600; padding: 12px 8px; border-bottom: 2px solid var(--border); }
+        td { padding: 12px 8px; border-bottom: 1px solid #f1f3f4; text-align: center; }
+        tr:hover { background-color: #fcfcfc; }
+
+        .col-win { color: var(--win); font-weight: bold; }
+        .col-ast { color: var(--assist); font-weight: bold; }
+        .col-err { color: var(--error); }
+        .col-total { font-weight: bold; background: #f8f9fa; }
+        .col-avg { background: #fffdf0; font-weight: 900; font-size: 1.1em; color: #d93025; }
+        .pdf-only { display: none; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <h1>Bounty Hunters 稼働分析ダッシュボード</h1>
+        
+        <div class="sort-control">
+            <label for="sortOrder">並び順:</label>
+            <select id="sortOrder" class="sort-select" onchange="render()">
+                <option value="name">名前順 (A-Z)</option>
+                <option value="mac">MACアドレス順</option>
+            </select>
+        </div>
+
+        <div class="upload-area" id="dropZone" onclick="document.getElementById('fileInput').click()">
+            <p style="margin:0; font-size:15px; color:#5f6368;">
+                <strong>CSVファイルをドロップ</strong> またはクリックして選択<br>
+                <span style="font-size:12px; color:#9aa0a6;">(150ファイル程度まで一括処理可能)</span>
+            </p>
+            <input type="file" id="fileInput" multiple accept=".csv" style="display:none">
+        </div>
+        <div class="controls">
+            <button class="btn btn-outline" onclick="exportJSON()">JSON保存</button>
+            <button class="btn btn-outline" onclick="document.getElementById('importInput').click()">JSON読み込み</button>
+            <input type="file" id="importInput" accept=".json" style="display:none" onchange="importJSON(this)">
+            <button class="btn btn-outline" onclick="clearData()" style="color:#d93025">データ全消去</button>
+        </div>
+    </header>
+
+    <div id="machineList"></div>
+</div>
+
+<script>
+let db = {};
+const CEILING = 20;
+
+window.onload = () => {
+    const saved = localStorage.getItem('bh_v4_db');
+    if (saved) { db = JSON.parse(saved); render(); }
+};
+
+document.getElementById('fileInput').addEventListener('change', handleFiles);
+
+async function handleFiles(e) {
+    const files = Array.from(e.target.files);
+    const batchRoomData = {}; // 今回読み込んだファイル群でのセッション管理
+
+    for (const file of files) {
+        const text = await file.text();
+        parse(text, batchRoomData);
+    }
+    
+    // 全行を読み終わった後に、アシストと離脱を判定
+    Object.keys(batchRoomData).forEach(rid => {
+        const r = batchRoomData[rid];
+        const log = db[r.mac]?.logs[r.date];
+        if (!log) return;
+
+        if (!r.hasWin) {
+            if (r.loses >= CEILING) {
+                // WINなし 且つ LOSEが20以上 = アシスト獲得
+                log.a += Math.floor(r.loses / CEILING);
+            } else if (r.loses > 0) {
+                // WINなし 且つ LOSEが20未満 = 離脱
+                log.drop++;
+            }
+        }
+    });
+
+    save();
+}
+
+function parse(text, batchRoomData) {
+    const lines = text.split(/\r?\n/);
+    if (lines.length < 2) return;
+    const headers = lines[0].replace(/"/g, '').split(',');
+    const idx = {
+        mac: headers.findIndex(h => h.trim() === 'MAC'),
+        type: headers.findIndex(h => h.trim() === 'TYPE'),
+        time: headers.findIndex(h => h.trim() === 'TIME'),
+        info: headers.findIndex(h => h.trim() === 'INFO')
+    };
+
+    for (let i = 1; i < lines.length; i++) {
+        const cols = lines[i].split('","').map(c => c.replace(/"/g, ''));
+        if (cols.length <= idx.time) continue;
+
+        const mac = cols[idx.mac];
+        const type = cols[idx.type];
+        const date = cols[idx.time].split('T')[0];
+        // INFO列から room_id を抽出
+        const rid = cols[idx.info]?.match(/room: (\d+)/)?.[1] || cols[idx.info]?.match(/'room_id':'(\d+)'/)?.[1];
+
+        if (!db[mac]) db[mac] = { name: mac, logs: {} };
+        if (!db[mac].logs[date]) {
+            db[mac].logs[date] = { w:0, a:0, l:0, e1:0, e2:0, e3:0, e4:0, drop:0 };
+        }
+        
+        const log = db[mac].logs[date];
+
+        // セッションデータを記録（後でアシスト・離脱を判定するため）
+        if (rid) {
+            if (!batchRoomData[rid]) {
+                batchRoomData[rid] = { mac: mac, date: date, loses: 0, hasWin: false };
+            }
+        }
+
+        if (type === 'WIN_TURN') {
+            log.w++;
+            if (rid) batchRoomData[rid].hasWin = true;
+        } else if (type === 'LOSE_TURN') {
+            log.l++;
+            if (rid) batchRoomData[rid].loses++;
+        } else if (type.includes('ERROR')) {
+            const t = type.toUpperCase();
+            if (t.includes('TIMEOUT')) log.e1++;
+            else if (t.includes('MOTOR') || t.includes('LIMIT')) log.e2++;
+            else if (t.includes('COMM') || t.includes('NET')) log.e3++;
+            else log.e4++;
+        }
+    }
+}
+
+function render() {
+    const list = document.getElementById('machineList');
+    list.innerHTML = '';
+    const sortOrder = document.getElementById('sortOrder').value;
+
+    // 選択された並び順でソート
+    const sortedMacs = Object.keys(db).sort((a, b) => {
+        if (sortOrder === 'name') {
+            const nameA = db[a].name || a;
+            const nameB = db[b].name || b;
+            return nameA.localeCompare(nameB, 'ja', { numeric: true }); // A1, A2, A10 の順に賢くソート
+        } else {
+            return a.localeCompare(b);
+        }
+    });
+
+    sortedMacs.forEach(mac => {
+        const m = db[mac];
+        const cid = `area-${mac.replace(/:/g, '')}`;
+        let sw=0, sa=0, sl=0, sd=0;
+        
+        Object.values(m.logs).forEach(l => { 
+            sw += (l.w || 0); sa += (l.a || 0); sl += (l.l || 0); sd += (l.drop || 0); 
+        });
+        
+        // プレイ総手番 = WIN_TURN + LOSE_TURN
+        const totalPlays = sw + sl;
+        // 総獲得数 = 通常Win + アシスト
+        const totalAcq = sw + sa;
+
+        const card = document.createElement('div');
+        card.className = 'machine-card';
+        card.innerHTML = `
+            <div class="machine-header" onclick="this.parentElement.classList.toggle('is-open')">
+                <div class="name-section">
+                    <input type="text" class="rename-input" value="${m.name}" onclick="event.stopPropagation()" onchange="rename('${mac}', this.value)" placeholder="台の名前を入力">
+                    <span class="mac-label">${mac}</span>
+                </div>
+                <div class="quick-stats">
+                    <div class="q-item"><span class="q-label">自力獲得</span><span class="q-val col-win">${sw}</span></div>
+                    <div class="q-item"><span class="q-label">アシスト</span><span class="q-val col-ast">${sa}</span></div>
+                    <div class="q-item"><span class="q-label">平均手数</span><span class="q-val col-avg">${totalAcq > 0 ? (totalPlays/totalAcq).toFixed(1) : '-'}</span></div>
+                </div>
+            </div>
+            <div class="machine-content">
+                <div class="table-controls">
+                    <button class="btn btn-outline" onclick="exportPDF('${cid}', '${m.name}')">📄 PDFレポート出力</button>
+                </div>
+                <div id="${cid}">
+                    <h2 class="pdf-only">${m.name} 稼働状況レポート</h2>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>日付</th>
+                                <th class="col-win">通常Win</th>
+                                <th class="col-ast">アシスト</th>
+                                <th>Lose手番</th>
+                                <th class="col-total">総プレイ手数</th>
+                                <th>離脱数</th>
+                                <th title="Timeout">Err:T</th>
+                                <th title="Motor">Err:M</th>
+                                <th title="Comm">Err:C</th>
+                                <th title="Other">Err:O</th>
+                                <th>平均獲得手数</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${Object.keys(m.logs).sort().reverse().map(d => {
+                                const l = m.logs[d];
+                                const w = l.w || 0; const a = l.a || 0; const ls = l.l || 0;
+                                const plays = w + ls; 
+                                const acq = w + a;
+                                return `<tr>
+                                    <td>${d}</td>
+                                    <td class="col-win">${w}</td>
+                                    <td class="col-ast">${a}</td>
+                                    <td>${ls}</td>
+                                    <td class="col-total">${plays}</td>
+                                    <td style="color:#666">${l.drop || 0}</td>
+                                    <td class="col-err">${l.e1 || 0}</td>
+                                    <td class="col-err">${l.e2 || 0}</td>
+                                    <td class="col-err">${l.e3 || 0}</td>
+                                    <td class="col-err">${l.e4 || 0}</td>
+                                    <td class="col-avg">${acq > 0 ? (plays/acq).toFixed(2) : '-'}</td>
+                                </tr>`;
+                            }).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        `;
+        list.appendChild(card);
+    });
+}
+
+function rename(mac, val) { db[mac].name = val; save(); }
+function save() { localStorage.setItem('bh_v4_db', JSON.stringify(db)); render(); }
+function exportJSON() {
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([JSON.stringify(db)], {type: 'application/json'}));
+    a.download = `BH_Backup_${new Date().toISOString().split('T')[0]}.json`;
+    a.click();
+}
+function importJSON(input) {
+    const r = new FileReader();
+    r.onload = (e) => { db = JSON.parse(e.target.result); save(); };
+    r.readAsText(input.files[0]);
+}
+function clearData() { if(confirm('データを全消去しますか？')) { db = {}; localStorage.removeItem('bh_v4_db'); render(); } }
+function exportPDF(id, name) {
+    const el = document.getElementById(id);
+    const pdfOnly = el.querySelector('.pdf-only');
+    pdfOnly.style.display = 'block';
+    html2pdf().set({ margin: 10, filename: `Report_${name}.pdf`, jsPDF: { orientation: 'landscape' } })
+        .from(el).save().then(() => pdfOnly.style.display = 'none');
+}
+</script>
+
+</body>
+</html>
