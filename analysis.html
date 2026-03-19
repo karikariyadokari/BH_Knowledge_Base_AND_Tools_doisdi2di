@@ -147,8 +147,13 @@ function parse(text, batchRoomData) {
 
         const mac = cols[idx.mac];
         const type = cols[idx.type];
-        const date = cols[idx.time].split('T')[0];
-        // INFO列から room_id を抽出
+        
+        // --- 時間調整ロジックここから ---
+        const utcTime = new Date(cols[idx.time]); // CSVのUTC時間を取得
+        utcTime.setHours(utcTime.getHours() + 9); // 日本時間に調整 (+9時間)
+        const date = utcTime.toISOString().split('T')[0]; // 調整後の日付を取得
+        // --- 時間調整ロジックここまで ---
+
         const rid = cols[idx.info]?.match(/room: (\d+)/)?.[1] || cols[idx.info]?.match(/'room_id':'(\d+)'/)?.[1];
 
         if (!db[mac]) db[mac] = { name: mac, logs: {} };
@@ -158,7 +163,6 @@ function parse(text, batchRoomData) {
         
         const log = db[mac].logs[date];
 
-        // セッションデータを記録（後でアシスト・離脱を判定するため）
         if (rid) {
             if (!batchRoomData[rid]) {
                 batchRoomData[rid] = { mac: mac, date: date, loses: 0, hasWin: false };
