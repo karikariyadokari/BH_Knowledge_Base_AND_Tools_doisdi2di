@@ -9,7 +9,7 @@
             --primary: #1a73e8;
             --dark: #202124;
             --bg: #f8f9fa;
-            --card-hover: #ffffff;
+            --border: #dadce0;
         }
 
         body {
@@ -23,12 +23,11 @@
         /* ヘッダーデザイン */
         header {
             background-color: #fff;
-            color: var(--dark);
             padding: 15px 40px;
             display: flex;
             align-items: center;
             box-shadow: 0 2px 4px rgba(0,0,0,0.08);
-            border-bottom: 1px solid #dadce0;
+            border-bottom: 1px solid var(--border);
         }
 
         .logo-area {
@@ -52,18 +51,18 @@
 
         /* メインコンテンツ */
         main {
-            max-width: 1000px;
-            margin: 60px auto;
+            max-width: 1100px;
+            margin: 50px auto;
             padding: 0 20px;
         }
 
         .welcome-msg {
             text-align: center;
-            margin-bottom: 50px;
+            margin-bottom: 40px;
         }
 
         .welcome-msg h2 {
-            font-size: 2rem;
+            font-size: 1.8rem;
             margin-bottom: 10px;
             color: var(--dark);
         }
@@ -75,53 +74,53 @@
         /* ナビゲーションカード */
         .nav-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-            gap: 25px;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 20px;
         }
 
         .nav-card {
             background: #fff;
             border: 1px solid var(--border);
             border-radius: 12px;
-            padding: 30px;
+            padding: 25px;
             text-decoration: none;
             color: inherit;
-            transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+            transition: all 0.25s ease;
             display: flex;
             flex-direction: column;
             align-items: center;
             text-align: center;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
         }
 
         .nav-card:hover {
             transform: translateY(-5px);
-            box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+            box-shadow: 0 12px 24px rgba(0,0,0,0.1);
             border-color: var(--primary);
         }
 
         .icon {
-            font-size: 40px;
+            font-size: 36px;
             margin-bottom: 15px;
         }
 
         .card-title {
-            font-size: 1.2rem;
+            font-size: 1.1rem;
             font-weight: bold;
             margin-bottom: 10px;
             color: var(--primary);
         }
 
         .card-desc {
-            font-size: 0.9rem;
+            font-size: 0.85rem;
             color: #5f6368;
             line-height: 1.5;
         }
 
         footer {
             text-align: center;
-            margin-top: 80px;
-            padding-bottom: 40px;
+            margin-top: 60px;
+            padding-bottom: 30px;
             font-size: 0.8rem;
             color: #9aa0a6;
         }
@@ -144,26 +143,32 @@
 <main>
     <div class="welcome-msg">
         <h2>Operations Portal</h2>
-        <p>業務に必要なツールを選択してください</p>
+        <p>業務に必要なシステムを選択してください</p>
     </div>
 
     <div class="nav-grid">
         <a href="knowledge_base.html" class="nav-card">
             <div class="icon">📖</div>
             <div class="card-title">運営マニュアル</div>
-            <div class="card-desc">CS対応フローやマシンのトラブルシューティング、基本仕様を確認します。</div>
+            <div class="card-desc">CS対応フロー、仕様確認、トラブルシューティング等のナレッジベース。</div>
         </a>
 
         <a href="analysis.html" class="nav-card">
             <div class="icon">📈</div>
             <div class="card-title">ブース稼働分析</div>
-            <div class="card-desc">CSVログをアップロードし、獲得手数、アシスト率、エラー状況を可視化します。</div>
+            <div class="card-desc">マシンログから獲得手数、アシスト状況、エラー率を可視化します。(JST調整済)</div>
+        </a>
+
+        <a href="user_analytics.html" class="nav-card">
+            <div class="icon">👥</div>
+            <div class="card-title">ユーザー動向分析</div>
+            <div class="card-desc">ユーザーレベル、ログイン頻度、離脱リスクなどを分析・管理します。</div>
         </a>
 
         <a href="https://karikariyadokari.github.io/BH_CS_Test_dqdnwind22eda" class="nav-card" target="_blank">
             <div class="icon">💬</div>
             <div class="card-title">CSテンプレート管理</div>
-            <div class="card-desc">問い合わせへの返信テンプレートの検索、自動タグ付け、管理を行います。</div>
+            <div class="card-desc">定型文の検索や自動タグ付けを行う外部管理ツールを開きます。</div>
         </a>
     </div>
 </main>
