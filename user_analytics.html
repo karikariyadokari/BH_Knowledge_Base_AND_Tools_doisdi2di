@@ -196,7 +196,8 @@
 
     <script>
 
-       // マニュアルの開閉処理
+       
+        // マニュアルの開閉処理
         function toggleManual() {
             const modal = document.getElementById('manualModal');
             modal.classList.toggle('hidden');
@@ -205,23 +206,6 @@
         let allData = [];
         let levelChart = null;
         let trendChart = null;
-
-        // CSV読み込み処理
-        document.getElementById('csvFile').addEventListener('change', e => {
-            const file = e.target.files[0];
-            if (!file) return;
-
-            Papa.parse(file, {
-                header: true,
-                skipEmptyLines: true,
-                complete: results => {
-                    // 生データを保存
-                    localStorage.setItem('game_dashboard_data', JSON.stringify(results.data));
-                    processData(results.data);
-                }
-            });
-        });
-
 
         // --- 1. データを整形して処理する共通関数 ---
         function processData(rawData) {
@@ -281,7 +265,7 @@
             }
         });
 
-        // --- 4. フィルタリングと描画（変更なし、ただしlvNumが必要） ---
+        // --- 4. フィルタリング処理 ---
         function applyFilters() {
             if (!allData.length) return;
 
@@ -306,7 +290,8 @@
 
             updateDashboard(filtered);
         }
-        // ダッシュボード更新
+
+        // --- 5. ダッシュボード全体の更新 ---
         function updateDashboard(data) {
             const count = data.length;
             const avgLv = count ? (data.reduce((sum, d) => sum + d.lvNum, 0) / count).toFixed(1) : 0;
@@ -337,7 +322,7 @@
             renderTable(data, today);
         }
 
-        // レベル分布グラフ
+        // --- 6. レベル分布グラフ描画 ---
         function renderLevelChart(data) {
             const bins = { 'Lv 1': 0, 'Lv 2-10': 0, 'Lv 11-30': 0, 'Lv 31-50': 0, 'Lv 51-100': 0, 'Lv 101+': 0 };
             data.forEach(d => {
@@ -373,7 +358,7 @@
             });
         }
 
-        // トレンドグラフ
+        // --- 7. トレンドグラフ描画 ---
         function renderTrendChart(data) {
             const daily = {};
             data.forEach(d => {
@@ -407,7 +392,7 @@
             });
         }
 
-        // テーブル描画（レベル降順ソート）
+        // --- 8. テーブル描画 ---
         function renderTable(data, today) {
             const body = document.getElementById('userTableBody');
             body.innerHTML = '';
