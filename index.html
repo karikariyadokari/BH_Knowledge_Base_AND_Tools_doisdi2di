@@ -160,22 +160,56 @@
             100% { background-color: rgba(255, 255, 0, 0.1); }
         }
 
+        /* 2. 画面の振動（重低音が響いているような揺れ） */
+        @keyframes screen-shake {
+            0% { transform: translate(0, 0); }
+            25% { transform: translate(2px, -2px); }
+            50% { transform: translate(-2px, 2px); }
+            75% { transform: translate(2px, 2px); }
+            100% { transform: translate(0, 0); }
+        }
+
+        /* 4. 紙吹雪のスタイル */
+        .confetti {
+            position: absolute;
+            width: 10px;
+            height: 10px;
+            z-index: 10000;
+            pointer-events: none;
+            animation: fall linear forwards;
+        }
+
+        @keyframes fall {
+            to {
+                transform: translateY(100vh) rotate(720deg);
+                opacity: 0;
+            }
+        }
+
         /* ミラーボール */
-        .disco-ball {
+       .disco-ball {
             position: absolute;
             top: -100px;
             font-size: 80px;
             transition: top 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            /* 常に正面を向かせつつ、Y軸で回転させる */
+            transform-style: preserve-3d;
         }
 
-        .party-active .disco-ball {
-            top: 20px;
-            animation: rotate 2s linear infinite;
+       .party-active .disco-ball {
+            top: -10px;
+            /* 修正：rotate を rotateY に変更し、少し傾けるとより立体的に見えます */
+            animation: rotate-y 1.5s linear infinite;
         }
 
-        @keyframes rotate {
-            from { transform: rotate(0deg); }
-            to { transform: rotate(360deg); }
+        /* Y軸回転のアニメーション */
+        @keyframes rotate-y {
+            from {
+                transform: rotateY(0deg);
+            }
+            to {
+                transform: rotateY(360deg);
+            }
         }
 
         /* パリピキリン */
@@ -250,19 +284,34 @@
     const logo = document.getElementById('logo');
     const overlay = document.getElementById('party-overlay');
 
+    // 紙吹雪を作る関数
+    function createConfetti() {
+        for (let i = 0; i < 50; i++) {
+            const confetti = document.createElement('div');
+            confetti.className = 'confetti';
+            confetti.style.left = Math.random() * 100 + 'vw';
+            confetti.style.top = '-10px';
+            confetti.style.backgroundColor = `hsl(${Math.random() * 360}, 100%, 50%)`;
+            confetti.style.animationDuration = (Math.random() * 2 + 1) + 's';
+            confetti.style.opacity = Math.random();
+            overlay.appendChild(confetti);
+            
+            // アニメーション終了後に削除
+            setTimeout(() => confetti.remove(), 3000);
+        }
+    }
+
     logo.addEventListener('click', () => {
-        // 表示を切り替え
         overlay.classList.remove('party-hidden');
         
-        // 少し遅らせてアニメーションを開始（ブラウザの描画タイミングのため）
         setTimeout(() => {
-            overlay.classList.toggle('party-active');
+            overlay.classList.add('party-active');
+            createConfetti(); // 紙吹雪発射！
         }, 10);
 
-        // 5秒後に自動で帰宅させる
+        // 5秒後に終了
         setTimeout(() => {
             overlay.classList.remove('party-active');
-            // アニメーションが終わるのを待ってから非表示にする
             setTimeout(() => {
                 if (!overlay.classList.contains('party-active')) {
                     overlay.classList.add('party-hidden');
