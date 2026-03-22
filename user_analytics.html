@@ -3,21 +3,19 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Game Intelligence Dashboard | Pro V2</title>
+    <title>Game Intelligence Dashboard | Pro V4</title>
     <link rel="icon" href="favicon.ico">
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
-    <!-- 日付計算ライブラリ -->
     <script src="https://cdn.jsdelivr.net/npm/dayjs@1.11.7/dayjs.min.js"></script>
-    <!-- minMaxプラグインを追加 -->
     <script src="https://cdn.jsdelivr.net/npm/dayjs@1.11.7/plugin/minMax.js"></script>
     <script>dayjs.extend(window.dayjs_plugin_minMax);</script>
     <style>
         body { background-color: #0f172a; color: #e2e8f0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
         .card { background-color: #1e293b; border: 1px solid #334155; border-radius: 12px; }
         .accent-blue { color: #38bdf8; }
-        /* 入力フォームの視認性改善 */
+        .accent-purple { color: #c084fc; }
         .input-field { 
             background-color: #334155; 
             border: 1px solid #475569; 
@@ -28,30 +26,81 @@
             outline: none;
         }
         .input-field:focus { border-color: #38bdf8; box-shadow: 0 0 0 1px #38bdf8; }
-        /* カレンダーアイコンを白くする(Webkit系) */
         ::-webkit-calendar-picker-indicator { filter: invert(1); cursor: pointer; }
     </style>
 </head>
 <body class="p-4 md:p-8">
 
     <div class="max-w-[1600px] mx-auto">
-        <!-- Header -->
         <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
             <div>
                 <h1 class="text-3xl font-extrabold tracking-tight">Game Intelligence <span class="accent-blue">Dashboard</span></h1>
-                <p class="text-slate-400 text-sm mt-1">ユーザーアナリティクス</p>
+                <p class="text-slate-400 text-sm mt-1">ユーザーアナリティクス ＆ 収益予測 (V4)</p>
             </div>
-            <div class="flex items-center gap-4">
-                <button onclick="toggleManual()" class="bg-slate-700 hover:bg-slate-600 text-white text-sm font-bold py-2 px-4 rounded-md transition-all flex items-center gap-2 border border-slate-600">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                    マニュアル
-                </button>
-                <input type="file" id="csvFile" accept=".csv" class="text-sm text-slate-300 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:bg-sky-600 file:text-white hover:file:bg-sky-500 cursor-pointer">
+            <div class="flex flex-col gap-2 items-end">
+                <div class="flex items-center gap-4">
+                    <button onclick="toggleManual()" class="bg-slate-700 hover:bg-slate-600 text-white text-sm font-bold py-2 px-4 rounded-md transition-all flex items-center gap-2 border border-slate-600">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                        マニュアル
+                    </button>
+                    <div class="bg-sky-900/50 p-1.5 rounded-md border border-sky-700 flex items-center gap-2">
+                        <span class="text-xs font-bold text-sky-300 ml-2">1. ユーザーCSV:</span>
+                        <input type="file" id="csvFile" accept=".csv" class="text-sm text-slate-300 file:mr-4 file:py-1 file:px-3 file:rounded-md file:border-0 file:bg-sky-600 file:text-white hover:file:bg-sky-500 cursor-pointer">
+                    </div>
+                </div>
+                <div class="flex items-center gap-4">
+                    <div class="bg-emerald-900/50 p-1.5 rounded-md border border-emerald-700 flex items-center gap-2">
+                        <span class="text-xs font-bold text-emerald-300 ml-2">2. 売上CSV:</span>
+                        <input type="file" id="salesFile" accept=".csv" class="text-sm text-slate-300 file:mr-4 file:py-1 file:px-3 file:rounded-md file:border-0 file:bg-emerald-600 file:text-white hover:file:bg-emerald-500 cursor-pointer">
+                    </div>
+                </div>
             </div>
         </div>
 
-        <!-- Filter Bar -->
-        <div class="card p-6 mb-8 grid grid-cols-1 md:grid-cols-4 gap-6 items-end">
+        <div class="card p-6 mb-8 border-l-4 border-purple-500 bg-slate-800/50">
+            <h2 class="text-lg font-bold text-white mb-4">運営データ入力 (管理パネル数値)</h2>
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+                <div>
+                    <label class="block text-sm font-bold text-slate-200 mb-2">DAU (日次アクティブ)</label>
+                    <input type="number" id="inputDau" class="input-field text-lg font-bold text-sky-300" placeholder="例: 1500" value="0">
+                </div>
+                <div>
+                    <label class="block text-sm font-bold text-slate-200 mb-2">WAU (週次アクティブ)</label>
+                    <input type="number" id="inputWau" class="input-field text-lg font-bold text-sky-300" placeholder="例: 4500" value="0">
+                </div>
+                <div>
+                    <label class="block text-sm font-bold text-slate-200 mb-2">MAU (月次アクティブ)</label>
+                    <input type="number" id="inputMau" class="input-field text-lg font-bold text-sky-300" placeholder="例: 10000" value="0">
+                </div>
+                <div>
+                    <label class="block text-sm font-bold text-slate-200 mb-2">累計課金額 (円) ※自動計算連動</label>
+                    <input type="number" id="inputRevenue" class="input-field text-lg font-bold text-emerald-400" placeholder="例: 5000000" value="0">
+                </div>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+            <div class="card p-6 shadow-xl border-t-2 border-purple-500">
+                <p class="text-slate-300 text-sm font-bold">定着率 (DAU/MAU)</p>
+                <div class="flex items-end gap-2 mt-2">
+                    <p id="kpi-stickiness" class="text-4xl font-bold text-white">0.0%</p>
+                </div>
+            </div>
+            <div class="card p-6 shadow-xl border-t-2 border-amber-500">
+                <p class="text-slate-300 text-sm font-bold">課金ユーザー率 (PUR)</p>
+                <p id="kpi-pur" class="text-4xl font-bold mt-2 text-amber-400">0.0%</p>
+            </div>
+            <div class="card p-6 shadow-xl border-t-2 border-emerald-500">
+                <p class="text-slate-300 text-sm font-bold">ARPPU (課金者平均単価)</p>
+                <p id="kpi-arppu" class="text-4xl font-bold mt-2 text-emerald-400">¥ 0</p>
+            </div>
+            <div class="card p-6 shadow-xl border-t-2 border-pink-500">
+                <p class="text-slate-300 text-sm font-bold">月間収益予測</p>
+                <p id="kpi-forecast" class="text-4xl font-bold mt-2 text-pink-400">¥ 0</p>
+            </div>
+        </div>
+
+        <div class="card p-6 mb-8 grid grid-cols-1 md:grid-cols-5 gap-6 items-end">
             <div>
                 <label class="block text-sm font-bold text-slate-200 mb-2">レベル範囲</label>
                 <div class="flex gap-2">
@@ -60,7 +109,7 @@
                     <input type="number" id="maxLevel" value="1000" class="input-field text-sm" placeholder="最大Lv">
                 </div>
             </div>
-            <div>
+            <div class="col-span-2">
                 <label class="block text-sm font-bold text-slate-200 mb-2">期間指定 (登録日)</label>
                 <div class="flex gap-2">
                     <input type="date" id="startDate" class="input-field text-sm">
@@ -69,11 +118,11 @@
                 </div>
             </div>
             <div>
-                <label class="block text-sm font-bold text-slate-200 mb-2">ステータス</label>
-                <select id="statusFilter" class="input-field text-sm">
+                <label class="block text-sm font-bold text-slate-200 mb-2">課金状態</label>
+                <select id="payerFilter" class="input-field text-sm">
                     <option value="ALL">すべて</option>
-                    <option value="ACTIVE">ACTIVEのみ</option>
-                    <option value="BANNED">BANNEDのみ</option>
+                    <option value="PAYER">課金者のみ</option>
+                    <option value="NON_PAYER">無課金者のみ</option>
                 </select>
             </div>
             <button onclick="applyFilters()" class="bg-sky-600 hover:bg-sky-500 text-white font-bold py-2 px-6 rounded-md transition-all h-[38px] flex items-center justify-center">
@@ -81,7 +130,6 @@
             </button>
         </div>
 
-        <!-- KPI Cards -->
         <div id="kpiArea" class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
             <div class="card p-6 shadow-xl">
                 <p class="text-slate-300 text-sm font-bold">分析対象ユーザー</p>
@@ -101,27 +149,17 @@
             </div>
         </div>
 
-        <!-- Charts Row 1 -->
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
             <div class="card p-6">
-                <h3 class="text-lg font-bold mb-4 flex items-center gap-2 text-white">
-                    <span class="w-2 h-6 bg-sky-500 rounded"></span> レベル分布 (セグメント)
-                </h3>
-                <div class="h-[350px]">
-                    <canvas id="levelChart"></canvas>
-                </div>
+                <h3 class="text-lg font-bold mb-4 text-white">レベル分布</h3>
+                <div class="h-[350px]"><canvas id="levelChart"></canvas></div>
             </div>
             <div class="card p-6">
-                <h3 class="text-lg font-bold mb-4 flex items-center gap-2 text-white">
-                    <span class="w-2 h-6 bg-emerald-500 rounded"></span> 新規登録トレンド
-                </h3>
-                <div class="h-[350px]">
-                    <canvas id="trendChart"></canvas>
-                </div>
+                <h3 class="text-lg font-bold mb-4 text-white">新規登録トレンド</h3>
+                <div class="h-[350px]"><canvas id="trendChart"></canvas></div>
             </div>
         </div>
 
-        <!-- User Table -->
         <div class="card overflow-hidden">
             <div class="p-6 border-b border-slate-700 flex justify-between items-center bg-slate-800/80">
                 <h3 class="text-lg font-bold text-white">ユーザーリスト（レベル降順）</h3>
@@ -133,14 +171,13 @@
                         <tr>
                             <th class="px-6 py-4 font-bold border-b border-slate-700">NAME</th>
                             <th class="px-6 py-4 font-bold border-b border-slate-700">LEVEL ▼</th>
+                            <th class="px-6 py-4 font-bold border-b border-slate-700 text-emerald-400">累計課金額 (LTV)</th>
                             <th class="px-6 py-4 font-bold border-b border-slate-700">STATUS</th>
-                            <th class="px-6 py-4 font-bold border-b border-slate-700">FIRST LOGIN</th>
                             <th class="px-6 py-4 font-bold border-b border-slate-700">経過日数</th>
                         </tr>
                     </thead>
                     <tbody id="userTableBody" class="divide-y divide-slate-700/50 text-slate-200">
-                        <!-- Rows will be added by JS -->
-                    </tbody>
+                        </tbody>
                 </table>
             </div>
         </div>
@@ -148,16 +185,17 @@
 
     <div id="manualModal" class="fixed inset-0 bg-black/80 z-50 hidden flex justify-center items-center p-4 backdrop-blur-sm transition-opacity">
         <div class="bg-slate-800 rounded-xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-hidden flex flex-col border border-slate-600">
-            
             <div class="p-5 border-b border-slate-700 flex justify-between items-center bg-slate-900">
-                <h2 class="text-xl font-bold text-white flex items-center gap-2">
-                    📖 ユーザーアナリティクス 利用マニュアル
-                </h2>
+                <h2 class="text-xl font-bold text-white flex items-center gap-2">📖 利用マニュアル</h2>
                 <button onclick="toggleManual()" class="text-slate-400 hover:text-white text-3xl leading-none">&times;</button>
+            </div>
+            <div class="p-6 overflow-y-auto text-slate-300 space-y-6">
+                <p>ユーザーデータ(CSV)と売上データ(CSV)を両方読み込むことで、課金指標を自動マージします。</p>
             </div>
 
             <div class="p-6 overflow-y-auto text-slate-300 space-y-8">
                 <section>
+                    <section>
                     <h3 class="text-lg font-bold text-sky-400 border-b border-slate-700 pb-2 mb-3">1. データの読み込み (CSV)</h3>
                     <p class="text-sm leading-relaxed">右上の「ファイルを選択」ボタンから、指定フォーマットのユーザーデータCSVをアップロードしてください。読み込まれたデータはブラウザ（ローカルストレージ）に自動保存されるため、次回アクセス時も前回のデータが復元されます。</p>
                 </section>
@@ -184,131 +222,152 @@
                         <li><strong>ユーザーリスト:</strong> 絞り込まれたユーザーのうち、<strong>レベルが高い順に上位100名</strong>を表示します。</li>
                     </ul>
                 </section>
-            </div>
 
+                <section>
+                    <h3 class="text-lg font-bold text-purple-400 border-b border-slate-700 pb-2 mb-3">4. 収益・エンゲージメントの分析</h3>
+                    <p class="text-sm leading-relaxed mb-2">ゲーム管理パネルから取得した「DAU/WAU/MAU」と「累計課金額」を入力することで、リアルタイムに以下の指標を算出します。</p>
+                    <ul class="list-disc pl-5 text-sm space-y-2">
+                        <li><strong>定着率:</strong> DAU ÷ MAU。ユーザーがどれだけ日常的にログインしているかを示します。20%以上が健康的な目安です。</li>
+                        <li><strong>推定累計ARPU:</strong> 総課金額 ÷ 読み込んだCSVの全ユーザー数。1ユーザーあたりの平均単価です。</li>
+                        <li><strong>月間収益予測:</strong> 現在のDAUが1ヶ月間、平均ARPU分の価値を生み出した場合の簡易的な着地予想です。</li>
+                    </ul>
+                </section>
             <div class="p-4 border-t border-slate-700 bg-slate-900 text-right">
-                <button onclick="toggleManual()" class="bg-sky-600 hover:bg-sky-500 text-white font-bold py-2 px-6 rounded-md transition-all">
-                    閉じる
-                </button>
+                <button onclick="toggleManual()" class="bg-sky-600 hover:bg-sky-500 text-white font-bold py-2 px-6 rounded-md transition-all">閉じる</button>
             </div>
         </div>
     </div>
 
     <script>
-
-       
-        // マニュアルの開閉処理
-        function toggleManual() {
-            const modal = document.getElementById('manualModal');
-            modal.classList.toggle('hidden');
-        }
+        function toggleManual() { document.getElementById('manualModal').classList.toggle('hidden'); }
 
         let allData = [];
+        let salesMap = {}; // { userName: totalSpend }
         let levelChart = null;
         let trendChart = null;
 
-        // --- 1. データを整形して処理する共通関数 ---
+        // 1. ユーザーデータ読み込み
+        document.getElementById('csvFile').addEventListener('change', e => {
+            const file = e.target.files[0];
+            if (!file) return;
+            Papa.parse(file, { header: true, skipEmptyLines: true, complete: results => processData(results.data) });
+        });
+
+        // 2. 売上データ読み込み
+        document.getElementById('salesFile').addEventListener('change', e => {
+            const file = e.target.files[0];
+            if (!file) return;
+            Papa.parse(file, { header: true, skipEmptyLines: true, complete: results => processSalesData(results.data) });
+        });
+
+        function processSalesData(rawData) {
+            salesMap = {};
+            let totalRevenue = 0;
+            
+            rawData.forEach(row => {
+                const user = row.USER;
+                const sales = parseInt(row.SALES) || 0;
+                if (user && sales > 0) {
+                    salesMap[user] = (salesMap[user] || 0) + sales;
+                    totalRevenue += sales;
+                }
+            });
+
+            // 集計した総課金額を入力欄に自動反映
+            document.getElementById('inputRevenue').value = totalRevenue;
+            
+            // ユーザーデータが既に読み込まれていれば再描画してマージ
+            if (allData.length > 0) applyFilters();
+            else updateRevenueMetrics(); // 売上のみ更新
+        }
+
         function processData(rawData) {
             if (!rawData || rawData.length === 0) return;
-
-            // localStorageに生データを保存（次回起動時のため）
-            localStorage.setItem('game_dashboard_data', JSON.stringify(rawData));
-
-            // データの整形（文字列を数値や日付に変換）
+            
             allData = rawData.map(d => ({
                 ...d,
-                // LEVEL_10 -> 10 に変換。数値として計算できるようにする
                 lvNum: parseInt(d.LEVEL?.replace('LEVEL_', '') || 0),
-                // 文字列の日付をdayjsオブジェクトに変換
                 date: d['FIRST LOGIN AT'] ? dayjs(d['FIRST LOGIN AT']) : null
             }));
 
-            // カレンダーの初期値をデータの範囲に自動設定
             const dates = allData.map(d => d.date).filter(d => d && d.isValid());
             if(dates.length) {
                 document.getElementById('startDate').value = dayjs.min(dates).format('YYYY-MM-DD');
                 document.getElementById('endDate').value = dayjs.max(dates).format('YYYY-MM-DD');
             }
-
-            // 画面を更新
             applyFilters();
         }
 
-        // --- 2. CSVファイルが選択された時の処理 ---
-        document.getElementById('csvFile').addEventListener('change', e => {
-            const file = e.target.files[0];
-            if (!file) return;
-
-            Papa.parse(file, {
-                header: true,
-                skipEmptyLines: true,
-                complete: results => {
-                    processData(results.data);
-                }
-            });
-        });
-
-        // --- 3. ページを開いた瞬間の復元処理 ---
-        window.addEventListener('DOMContentLoaded', () => {
-            const savedData = localStorage.getItem('game_dashboard_data');
-            
-            if (savedData) {
-                try {
-                    const parsed = JSON.parse(savedData);
-                    console.log("LocalStorageからデータを復元中...");
-                    // 保存されていた生データを共通関数に渡して整形
-                    processData(parsed); 
-                } catch (e) {
-                    console.error("データの復元に失敗しました", e);
-                    localStorage.removeItem('game_dashboard_data');
-                }
-            }
-        });
-
-        // --- 4. フィルタリング処理 ---
         function applyFilters() {
             if (!allData.length) return;
-
             const minLv = parseInt(document.getElementById('minLevel').value) || 0;
             const maxLv = parseInt(document.getElementById('maxLevel').value) || 9999;
             const startStr = document.getElementById('startDate').value;
             const endStr = document.getElementById('endDate').value;
-            const statusFilt = document.getElementById('statusFilter').value;
+            const payerFilt = document.getElementById('payerFilter').value;
 
             const filtered = allData.filter(d => {
-                // ここで lvNum (数値) を使用しているため、processDataでの変換が必須
+                const userLtv = salesMap[d.NAME] || 0;
                 const lvMatch = d.lvNum >= minLv && d.lvNum <= maxLv;
-                const statusMatch = statusFilt === 'ALL' || d.STATUS === statusFilt;
-                
                 let dateMatch = true;
                 if(startStr && endStr && d.date && d.date.isValid()) {
-                    dateMatch = d.date.isAfter(dayjs(startStr).subtract(1, 'day')) && 
-                                d.date.isBefore(dayjs(endStr).add(1, 'day'));
+                    dateMatch = d.date.isAfter(dayjs(startStr).subtract(1, 'day')) && d.date.isBefore(dayjs(endStr).add(1, 'day'));
                 }
-                return lvMatch && statusMatch && dateMatch;
-            });
+                
+                let payerMatch = true;
+                if (payerFilt === 'PAYER') payerMatch = userLtv > 0;
+                if (payerFilt === 'NON_PAYER') payerMatch = userLtv === 0;
 
+                return lvMatch && dateMatch && payerMatch;
+            });
             updateDashboard(filtered);
         }
 
-        // --- 5. ダッシュボード全体の更新 ---
+        function updateRevenueMetrics() {
+            const dau = parseFloat(document.getElementById('inputDau').value) || 0;
+            const mau = parseFloat(document.getElementById('inputMau').value) || 0;
+            const totalRevenue = parseFloat(document.getElementById('inputRevenue').value) || 0;
+            
+            // 課金者数と総ユーザー数を計算（フィルター前の全データ基準）
+            const totalUsers = allData.length || 0;
+            // salesMapに含まれるユーザーの中で、allDataに存在するユーザーを数える
+            let payingUsers = 0;
+            if (totalUsers > 0) {
+                 payingUsers = allData.filter(d => (salesMap[d.NAME] || 0) > 0).length;
+            }
+
+            const stickiness = mau > 0 ? ((dau / mau) * 100).toFixed(1) : 0;
+            const pur = totalUsers > 0 ? ((payingUsers / totalUsers) * 100).toFixed(1) : 0;
+            
+            // ARPPU (Average Revenue Per Paying User)
+            const arppu = payingUsers > 0 ? Math.floor(totalRevenue / payingUsers) : 0;
+            // 全体ARPU
+            const arpu = totalUsers > 0 ? Math.floor(totalRevenue / totalUsers) : 0;
+            
+            // 簡易予測: DAUが1ヶ月間で全体平均ARPU分だけ貢献すると仮定
+            const monthlyForecast = Math.floor(dau * arpu); 
+
+            document.getElementById('kpi-stickiness').innerText = stickiness + '%';
+            document.getElementById('kpi-pur').innerText = pur + '%';
+            document.getElementById('kpi-arppu').innerText = '¥ ' + arppu.toLocaleString();
+            document.getElementById('kpi-forecast').innerText = '¥ ' + monthlyForecast.toLocaleString();
+        }
+
+        ['inputDau', 'inputWau', 'inputMau', 'inputRevenue'].forEach(id => {
+            document.getElementById(id).addEventListener('input', updateRevenueMetrics);
+        });
+
         function updateDashboard(data) {
             const count = data.length;
             const avgLv = count ? (data.reduce((sum, d) => sum + d.lvNum, 0) / count).toFixed(1) : 0;
-            
-            const today = dayjs(); // 本日の日付
-            let riskCount = 0;
-            let churnCount = 0;
+            const today = dayjs();
+            let riskCount = 0; let churnCount = 0;
 
-            // 離脱ロジックの判定
             data.forEach(d => {
                 if (d.date && d.lvNum <= 10) {
                     const diffDays = today.diff(d.date, 'day');
-                    if (diffDays >= 20) {
-                        churnCount++; // 離脱状態
-                    } else if (diffDays >= 10) {
-                        riskCount++;  // 離脱リスク
-                    }
+                    if (diffDays >= 20) churnCount++;
+                    else if (diffDays >= 10) riskCount++;
                 }
             });
 
@@ -320,9 +379,11 @@
             renderLevelChart(data);
             renderTrendChart(data);
             renderTable(data, today);
+            
+            updateRevenueMetrics();
         }
 
-        // --- 6. レベル分布グラフ描画 ---
+        // --- チャート処理 ---
         function renderLevelChart(data) {
             const bins = { 'Lv 1': 0, 'Lv 2-10': 0, 'Lv 11-30': 0, 'Lv 31-50': 0, 'Lv 51-100': 0, 'Lv 101+': 0 };
             data.forEach(d => {
@@ -337,135 +398,58 @@
             if(levelChart) levelChart.destroy();
             levelChart = new Chart(document.getElementById('levelChart'), {
                 type: 'bar',
-                data: {
-                    labels: Object.keys(bins),
-                    datasets: [{
-                        label: 'ユーザー数',
-                        data: Object.values(bins),
-                        backgroundColor: '#38bdf8',
-                        borderRadius: 4
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: { legend: { display: false } },
-                    scales: {
-                        y: { grid: { color: '#334155' }, ticks: { color: '#e2e8f0' } },
-                        x: { grid: { display: false }, ticks: { color: '#e2e8f0' } }
-                    }
-                }
+                data: { labels: Object.keys(bins), datasets: [{ label: 'ユーザー数', data: Object.values(bins), backgroundColor: '#38bdf8', borderRadius: 4 }] },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { grid: { color: '#334155' } }, x: { grid: { display: false } } } }
             });
         }
 
-        // --- 7. トレンドグラフ描画 ---
         function renderTrendChart(data) {
             const daily = {};
-            data.forEach(d => {
-                if(d.date) {
-                    const day = d.date.format('MM/DD');
-                    daily[day] = (daily[day] || 0) + 1;
-                }
-            });
-
+            data.forEach(d => { if(d.date) { const day = d.date.format('MM/DD'); daily[day] = (daily[day] || 0) + 1; } });
             const labels = Object.keys(daily).sort();
             const dailyCounts = labels.map(l => daily[l]);
 
             if(trendChart) trendChart.destroy();
             trendChart = new Chart(document.getElementById('trendChart'), {
                 type: 'line',
-                data: {
-                    labels: labels,
-                    datasets: [
-                        { label: '新規登録数', data: dailyCounts, borderColor: '#10b981', backgroundColor: 'rgba(16, 185, 129, 0.2)', fill: true, tension: 0.2 }
-                    ]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: { legend: { display: false } },
-                    scales: {
-                        y: { grid: { color: '#334155' }, ticks: { color: '#e2e8f0' } },
-                        x: { grid: { display: false }, ticks: { color: '#e2e8f0' } }
-                    }
-                }
+                data: { labels: labels, datasets: [{ label: '新規登録数', data: dailyCounts, borderColor: '#10b981', backgroundColor: 'rgba(16, 185, 129, 0.2)', fill: true, tension: 0.2 }] },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { grid: { color: '#334155' } }, x: { grid: { display: false } } } }
             });
         }
 
-        // --- 8. テーブル描画 ---
         function renderTable(data, today) {
             const body = document.getElementById('userTableBody');
             body.innerHTML = '';
-            
-            // 全データをレベル降順でソート
             const sortedData = [...data].sort((a, b) => b.lvNum - a.lvNum);
-            
             document.getElementById('listCount').innerText = `該当 ${sortedData.length}名 中、上位100名を表示`;
             
             sortedData.slice(0, 100).forEach(d => {
                 const statusColor = d.STATUS === 'ACTIVE' ? 'text-emerald-400' : 'text-red-400';
                 
-                // 経過日数の計算とバッジ表示
-                let daysText = '-';
-                let riskBadge = '';
+                // 売上マッピングからユーザーの課金額を取得
+                const userLtv = salesMap[d.NAME] || 0;
+                const ltvDisplay = userLtv > 0 ? `¥ ${userLtv.toLocaleString()}` : '-';
+
+                let daysText = '-'; let riskBadge = '';
                 if(d.date) {
                     const diffDays = today.diff(d.date, 'day');
                     daysText = `${diffDays}日`;
-                    
-                    // ユーザー行ごとの警告バッジ
                     if(d.lvNum <= 10) {
-                        if(diffDays >= 20) {
-                            riskBadge = `<span class="bg-red-900/50 text-red-300 border border-red-700 px-2 py-0.5 rounded text-xs ml-2">離脱状態</span>`;
-                        } else if(diffDays >= 10) {
-                            riskBadge = `<span class="bg-yellow-900/50 text-yellow-300 border border-yellow-700 px-2 py-0.5 rounded text-xs ml-2">リスク有</span>`;
-                        }
+                        if(diffDays >= 20) riskBadge = `<span class="bg-red-900/50 text-red-300 border border-red-700 px-2 py-0.5 rounded text-xs ml-2">離脱状態</span>`;
+                        else if(diffDays >= 10) riskBadge = `<span class="bg-yellow-900/50 text-yellow-300 border border-yellow-700 px-2 py-0.5 rounded text-xs ml-2">リスク有</span>`;
                     }
                 }
-
-                const row = `
+                body.insertAdjacentHTML('beforeend', `
                     <tr class="hover:bg-slate-700/40 transition-colors">
-                        <td class="px-6 py-3 font-medium">${d.NAME} ${riskBadge}</td>
+                        <td class="px-6 py-3 font-medium">${d.NAME || '-'} ${riskBadge}</td>
                         <td class="px-6 py-3 font-bold text-sky-400">Lv. ${d.lvNum}</td>
-                        <td class="px-6 py-3 font-bold ${statusColor}">${d.STATUS}</td>
-                        <td class="px-6 py-3">${d['FIRST LOGIN AT'] || '-'}</td>
+                        <td class="px-6 py-3 font-bold text-emerald-400">${ltvDisplay}</td>
+                        <td class="px-6 py-3 font-bold ${statusColor}">${d.STATUS || '-'}</td>
                         <td class="px-6 py-3 text-slate-400">${daysText}</td>
                     </tr>
-                `;
-                body.insertAdjacentHTML('beforeend', row);
+                `);
             });
         }
-
-        // ページ読み込み時にLocalStorageからデータを復元
-        window.addEventListener('DOMContentLoaded', () => {
-            const savedData = localStorage.getItem('game_dashboard_data');
-            
-            if (savedData) {
-                try {
-                    const parsed = JSON.parse(savedData);
-                    
-                    // 保存されたデータの日付文字列をdayjsオブジェクトに復元
-                    allData = parsed.map(d => ({
-                        ...d,
-                        date: d.date ? dayjs(d.date) : null
-                    }));
-
-                    // カレンダーの初期値をデータ範囲に合わせる
-                    const dates = allData.map(d => d.date).filter(d => d);
-                    if(dates.length) {
-                        document.getElementById('startDate').value = dayjs.min(dates).format('YYYY-MM-DD');
-                        document.getElementById('endDate').value = dayjs.max(dates).format('YYYY-MM-DD');
-                    }
-
-                    // ダッシュボードを表示
-                    applyFilters();
-                    
-                    console.log("LocalStorageからデータを復元しました");
-                } catch (e) {
-                    console.error("データの復元に失敗しました", e);
-                    localStorage.removeItem('game_dashboard_data');
-                }
-            }
-        });
     </script>
 </body>
 </html>
