@@ -132,18 +132,19 @@
         }
 
         /* パリピ演出のベース */
-        #party-overlay {
+       #party-overlay {
             position: fixed;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
-            pointer-events: none; /* クリックを邪魔しない */
+            pointer-events: none;
             z-index: 9999;
             display: flex;
             flex-direction: column;
             align-items: center;
-            justify-content: flex-end;
+            /* justify-contentをcenterに変更してテキストを中央へ */
+            justify-content: center;
             overflow: hidden;
             transition: background 0.3s;
         }
@@ -167,6 +168,36 @@
             50% { transform: translate(-2px, 2px); }
             75% { transform: translate(2px, 2px); }
             100% { transform: translate(0, 0); }
+        }
+
+        /* 3. PARTY TIME! テロップ */
+        .party-text {
+            font-size: 8rem;
+            font-weight: 900;
+            font-style: italic;
+            color: #fff;
+            text-shadow: 0 0 20px #ff00ff, 0 0 40px #00ffff;
+            opacity: 0;
+            transform: scale(0.5);
+            transition: all 0.3s;
+        }
+
+        .party-active .party-text {
+            opacity: 1;
+            transform: scale(1);
+            animation: flash-text 0.3s infinite alternate, rainbow-color 1s infinite linear;
+        }
+
+        @keyframes flash-text {
+            from { transform: scale(1); filter: brightness(1); }
+            to { transform: scale(1.2); filter: brightness(2); }
+        }
+
+        @keyframes rainbow-color {
+            0% { color: #ff0000; }
+            33% { color: #00ff00; }
+            66% { color: #0000ff; }
+            100% { color: #ff0000; }
         }
 
         /* 4. 紙吹雪のスタイル */
@@ -217,6 +248,72 @@
             width: 300px; /* サイズは適宜調整してください */
             transform: translateY(100%);
             transition: transform 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        /* キリン全体をまとめるコンテナ */
+        .giraffe-group {
+            position: absolute;
+            bottom: -50px;
+            display: flex;
+            align-items: flex-end;
+            justify-content: center;
+            width: 100%;
+            pointer-events: none;
+        }
+
+        /* キリン共通のベース設定 */
+        .party-giraffe {
+            transition: transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            transform: translateY(110%); /* 最初は画面外 */
+        }
+
+        /* 表示時の各キリンのサイズ調整 */
+        .center-giraffe {
+            width: 350px;
+            z-index: 2;
+        }
+
+        .side-giraffe {
+            width: 250px;
+            z-index: 1;
+            filter: brightness(0.8); /* 左右は少し暗くして奥行きを出す */
+        }
+
+        /* --- ダンスのアニメーション --- */
+
+        /* センター：激しく上下バウンス */
+        .party-active .center-giraffe {
+            transform: translateY(0);
+            animation: dance-center 0.4s infinite alternate ease-in-out;
+        }
+
+        @keyframes dance-center {
+            from { transform: translateY(0) scale(1); }
+            to { transform: translateY(-40px) scale(1.05); }
+        }
+
+        /* 左：外側に広がりながら傾く */
+        .party-active .left {
+            transform: translateY(0);
+            animation: dance-left 0.5s infinite alternate ease-in-out;
+            animation-delay: 0.1s; /* 少しズラしてノリを出す */
+        }
+
+        @keyframes dance-left {
+            from { transform: translateX(-50px) rotate(-10deg); }
+            to { transform: translateX(-70px) rotate(-20deg) translateY(-20px); }
+        }
+
+        /* 右：外側に広がりながら傾く（左と逆） */
+        .party-active .right {
+            transform: translateY(0);
+            animation: dance-right 0.5s infinite alternate ease-in-out;
+            animation-delay: 0.1s;
+        }
+
+        @keyframes dance-right {
+            from { transform: translateX(50px) rotate(10deg); }
+            to { transform: translateX(70px) rotate(20deg) translateY(-20px); }
         }
 
         .party-active .party-giraffe {
@@ -277,45 +374,47 @@
 <!-- 追加：アニメーション用コンテナ -->
 <div id="party-overlay" class="party-hidden">
     <div class="disco-ball">🪩</div>
-    <img src="favicon2.png" alt="Party Giraffe" class="party-giraffe">
+    <!-- 中央のデカ文字テロップ -->
+    <div class="party-text">やりますねぇ!</div>
+    <!-- キリン3匹のグループ -->
+    <div class="giraffe-group">
+        <img src="favicon2.png" alt="Giraffe Left" class="party-giraffe side-giraffe left">
+        <img src="favicon2.png" alt="Giraffe Center" class="party-giraffe center-giraffe">
+        <img src="favicon2.png" alt="Giraffe Right" class="party-giraffe side-giraffe right">
+    </div>
 </div>
 
 <script>
     const logo = document.getElementById('logo');
     const overlay = document.getElementById('party-overlay');
 
-    // 紙吹雪を作る関数
-    function createConfetti() {
-        for (let i = 0; i < 50; i++) {
-            const confetti = document.createElement('div');
-            confetti.className = 'confetti';
-            confetti.style.left = Math.random() * 100 + 'vw';
-            confetti.style.top = '-10px';
-            confetti.style.backgroundColor = `hsl(${Math.random() * 360}, 100%, 50%)`;
-            confetti.style.animationDuration = (Math.random() * 2 + 1) + 's';
-            confetti.style.opacity = Math.random();
-            overlay.appendChild(confetti);
-            
-            // アニメーション終了後に削除
-            setTimeout(() => confetti.remove(), 3000);
+    function spawnConfetti() {
+        for (let i = 0; i < 60; i++) {
+            const c = document.createElement('div');
+            c.className = 'confetti';
+            c.style.left = Math.random() * 100 + 'vw';
+            c.style.top = '-20px';
+            c.style.backgroundColor = `hsl(${Math.random() * 360}, 100%, 50%)`;
+            c.style.animationDuration = (Math.random() * 2 + 1) + 's';
+            overlay.appendChild(c);
+            setTimeout(() => c.remove(), 3000);
         }
     }
 
     logo.addEventListener('click', () => {
+        if (!overlay.classList.contains('party-hidden')) return; // 重複防止
+
         overlay.classList.remove('party-hidden');
-        
         setTimeout(() => {
             overlay.classList.add('party-active');
-            createConfetti(); // 紙吹雪発射！
+            spawnConfetti();
         }, 10);
 
-        // 5秒後に終了
+        // 5秒間の狂乱のあと、夢から覚める
         setTimeout(() => {
             overlay.classList.remove('party-active');
             setTimeout(() => {
-                if (!overlay.classList.contains('party-active')) {
-                    overlay.classList.add('party-hidden');
-                }
+                overlay.classList.add('party-hidden');
             }, 600);
         }, 5000);
     });
