@@ -130,6 +130,68 @@
             header { padding: 10px 20px; }
             .nav-grid { grid-template-columns: 1fr; }
         }
+
+        /* パリピ演出のベース */
+        #party-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none; /* クリックを邪魔しない */
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-end;
+            overflow: hidden;
+            transition: background 0.3s;
+        }
+
+        /* 表示時のストロボ効果 */
+        .party-active {
+            background-color: rgba(0, 0, 0, 0.2);
+            animation: strobe 0.2s infinite;
+        }
+
+        @keyframes strobe {
+            0% { background-color: rgba(255, 0, 255, 0.1); }
+            50% { background-color: rgba(0, 255, 255, 0.1); }
+            100% { background-color: rgba(255, 255, 0, 0.1); }
+        }
+
+        /* ミラーボール */
+        .disco-ball {
+            position: absolute;
+            top: -100px;
+            font-size: 80px;
+            transition: top 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        .party-active .disco-ball {
+            top: 20px;
+            animation: rotate 2s linear infinite;
+        }
+
+        @keyframes rotate {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        /* パリピキリン */
+        .party-giraffe {
+            width: 300px; /* サイズは適宜調整してください */
+            transform: translateY(100%);
+            transition: transform 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        .party-active .party-giraffe {
+            transform: translateY(0);
+        }
+
+        .party-hidden {
+            display: none !important;
+        }
     </style>
 </head>
 <body>
@@ -177,6 +239,40 @@
 <footer>
     &copy; 2026 Bounty Hunters Support Operations. All Rights Reserved.
 </footer>
+<!-- 修正：ロゴに id="logo" と style を追加 -->
+<img src="channels4_profile.jpg" alt="Logo" class="logo-img" id="logo" style="cursor: pointer;">
+
+<!-- 追加：アニメーション用コンテナ -->
+<div id="party-overlay" class="party-hidden">
+    <div class="disco-ball">🪩</div>
+    <img src="favicon2.png" alt="Party Giraffe" class="party-giraffe">
+</div>
+
+<script>
+    const logo = document.getElementById('logo');
+    const overlay = document.getElementById('party-overlay');
+
+    logo.addEventListener('click', () => {
+        // 表示を切り替え
+        overlay.classList.remove('party-hidden');
+        
+        // 少し遅らせてアニメーションを開始（ブラウザの描画タイミングのため）
+        setTimeout(() => {
+            overlay.classList.toggle('party-active');
+        }, 10);
+
+        // 5秒後に自動で帰宅させる
+        setTimeout(() => {
+            overlay.classList.remove('party-active');
+            // アニメーションが終わるのを待ってから非表示にする
+            setTimeout(() => {
+                if (!overlay.classList.contains('party-active')) {
+                    overlay.classList.add('party-hidden');
+                }
+            }, 600);
+        }, 5000);
+    });
+</script>
 
 </body>
 </html>
