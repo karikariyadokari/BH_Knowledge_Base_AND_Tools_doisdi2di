@@ -366,6 +366,7 @@ let heatMode     = 'plays';
 let revTabMode   = 'daily';
 let sortState    = { col: 'plays', dir: 'desc' };
 let lastStats    = {};   // ★ renderAll が生成した boothStats を保持 → ソート時に再利用
+let serverVersion = 0;   // 楽観的ロック用: Driveから取得した最新バージョン番号
 const openBooths = new Set();
 const charts     = {};
 
@@ -411,7 +412,21 @@ window.addEventListener('DOMContentLoaded', () => {
     // ローカルストレージ復元
     try {
         const saved = localStorage.getItem(DB_KEY);
-        if (saved) { db = JSON.parse(saved); renderAll(); }
+        if (saved) {
+            const parsed = JSON.parse(saved);
+            // 旧形式(db直接保存)との後方互換
+            if (parsed && parsed.db) {
+                db = parsed.db;
+                if (parsed.feeSettings) feeSettings = parsed.feeSettings;
+                if (parsed.defaultFee != null) {
+                    const el = document.getElementById('defaultFee');
+                    if (el) el.value = parsed.defaultFee;
+                }
+            } else {
+                db = parsed;
+            }
+            renderAll();
+        }
     } catch(_) {}
 
     // GAS 自動同期
@@ -985,7 +1000,7 @@ function applyFees() { toggleFeePanel(); renderAll(); }
 // 永続化
 // ============================================================
 function persistAndRender(autoSync=false) {
-    try { localStorage.setItem(DB_KEY, JSON.stringify(db)); } catch(_) {}
+    try { localStorage.setItem(DB_KEY, JSON.stringify({db, feeSettings, defaultFee: parseInt(document.getElementById('defaultFee')?.value)||100})); } catch(_) {}
     renderAll();
     if (autoSync) uploadToDrive(true);
 }
@@ -1069,12 +1084,40 @@ async function uploadToDrive(isAuto=false) {
     if(!url){if(!isAuto)setSyncStatus('error','GAS URLが設定されていません。');return;}
     if(!isAuto)setSyncStatus('loading','⏳ Driveにアップロード中...');
     try{
-        const res=await fetch(url,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify(db),redirect:'follow'});
+        // 楽観的ロック: 取得時のバージョンを一緒に送る
+        const defaultFee=parseInt(document.getElementById('defaultFee')?.value)||100;
+        const payload=JSON.stringify({db,feeSettings,defaultFee,baseVersion:serverVersion});
+        const res=await fetch(url,{method:'POST',headers:{'Content-Type':'text/plain'},body:payload,redirect:'follow'});
         const json=await res.json();
+
+        if(json.status==='conflict'){
+            // 競合: サーバー側が別の端末に更新されていた
+            if(confirm(
+                '⚠️ 競合が発生しました。\n\n' +
+                '別の端末がこの後にデータを更新しています。\n' +
+                'サーバーの最新データをローカルにマージして再保存しますか？\n\n' +
+                '（「キャンセル」を選ぶと保存を中止します）'
+            )){
+                if(json.serverData) db=clientSideMerge(json.serverData,db);
+                if(json.serverFeeSettings) feeSettings=clientSideMergeFees(json.serverFeeSettings,feeSettings);
+                if(json.serverDefaultFee != null){
+                    const el=document.getElementById('defaultFee');
+                    if(el && !document.getElementById('defaultFee').value) el.value=json.serverDefaultFee;
+                }
+                serverVersion=json.serverVersion;
+                persistAndRender(false);
+                await uploadToDrive(isAuto);
+            } else {
+                setSyncStatus('error','⚠️ 保存をキャンセルしました。「Driveから取得」で最新データを確認してください。');
+            }
+            return;
+        }
+
         if(json.status==='error')throw new Error(json.message||'不明なエラー');
+        if(json.version!==undefined) serverVersion=json.version;
         const now=new Date().toLocaleString('ja-JP');
         document.getElementById('syncLastFetched').textContent='最終保存: '+now;
-        if(!isAuto)setSyncStatus('ok','☁ 保存完了 — '+now);
+        if(!isAuto)setSyncStatus('ok','☁ 保存完了 (v'+serverVersion+') — '+now);
     }catch(err){if(!isAuto)setSyncStatus('error','❌ 保存失敗: '+err.message);}
 }
 async function syncFromDrive() {
@@ -1089,19 +1132,61 @@ async function syncFromDrive() {
         try{json=JSON.parse(text);}catch(e){throw new Error('JSONパースエラー: '+text.slice(0,60));}
         if(!json||typeof json!=='object'||Array.isArray(json)){setSyncStatus('error','⚠️ 予期しないデータ形式です。');return;}
         if(json.error)throw new Error(json.error);
-        if(!Object.keys(json).length){setSyncStatus('error','⚠️ Driveにまだデータがありません。');return;}
+        // 新形式: { version, updatedAt, db } / 旧形式との後方互換
+        const remoteDb=json.db||json;
+        const remoteVersion=json.version!==undefined?json.version:0;
+        if(!Object.keys(remoteDb).length){setSyncStatus('error','⚠️ Driveにまだデータがありません。');return;}
         const loaded={};
-        for(const mac of Object.keys(json)){
-            const m=json[mac];
+        for(const mac of Object.keys(remoteDb)){
+            const m=remoteDb[mac];
             if(!m||typeof m!=='object')continue;
             loaded[mac]={name:m.name||mac,tag:m.tag||'',logs:m.logs||{},hourly:m.hourly||{}};
         }
         if(!Object.keys(loaded).length){setSyncStatus('error','⚠️ 有効なブースデータがありません。');return;}
-        db=loaded; persistAndRender(false);
+        db=loaded;
+        if(json.feeSettings && typeof json.feeSettings==='object') feeSettings=json.feeSettings;
+        if(json.defaultFee != null){
+            const el=document.getElementById('defaultFee');
+            if(el) el.value=json.defaultFee;
+        }
+        serverVersion=remoteVersion; persistAndRender(false);
         const now=new Date().toLocaleString('ja-JP');
         document.getElementById('syncLastFetched').textContent='最終取得: '+now;
-        setSyncStatus('ok','✅ 同期完了（'+Object.keys(loaded).length+'ブース） — '+now);
+        setSyncStatus('ok','✅ 同期完了（'+Object.keys(loaded).length+'ブース, v'+serverVersion+'） — '+now);
     }catch(err){setSyncStatus('error','❌ 取得失敗: '+err.message);}
+}
+function clientSideMergeFees(serverFees,localFees){
+    // 料金設定はローカル優先（明示的な編集を尊重）
+    return Object.assign({}, serverFees||{}, localFees||{});
+}
+function clientSideMerge(serverDb,localDb){
+    const result=JSON.parse(JSON.stringify(serverDb));
+    for(const mac of Object.keys(localDb)){
+        const lb=localDb[mac];
+        if(!result[mac]){result[mac]=JSON.parse(JSON.stringify(lb));continue;}
+        const rb=result[mac];
+        if(lb.name)rb.name=lb.name;
+        if(lb.tag!==undefined)rb.tag=lb.tag;
+        rb.logs=rb.logs||{};
+        for(const d of Object.keys(lb.logs||{})){
+            rb.logs[d]=rb.logs[d]?mergeLogEntry(rb.logs[d],lb.logs[d]):JSON.parse(JSON.stringify(lb.logs[d]));
+        }
+        rb.hourly=rb.hourly||{};
+        for(const h of Object.keys(lb.hourly||{})){
+            rb.hourly[h]=rb.hourly[h]?mergeLogEntry(rb.hourly[h],lb.hourly[h]):JSON.parse(JSON.stringify(lb.hourly[h]));
+        }
+    }
+    return result;
+}
+function mergeLogEntry(s,c){
+    const keys=['w','l','a','drop','e1','e2','e3','e4','plays'];
+    const r=Object.assign({},s);
+    for(const k of keys){
+        const sv=typeof s[k]==='number'?s[k]:0;
+        const cv=typeof c[k]==='number'?c[k]:0;
+        r[k]=Math.max(sv,cv);
+    }
+    return r;
 }
 function onAutoSyncChange() {
     const checked=document.getElementById('autoSync').checked;
