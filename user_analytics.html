@@ -128,7 +128,7 @@
         <p id="kpi-stickiness" class="text-3xl font-bold mt-1 text-white">0.0%</p>
     </div>
     <div class="card p-5 border-t-2 border-amber-500">
-        <p class="text-slate-400 text-xs font-bold">課金ユーザー率 (PUR)</p>
+        <p class="text-slate-400 text-xs font-bold">課金ユーザー率 (PUR)※Lv1は除外</p>
         <p id="kpi-pur" class="text-3xl font-bold mt-1 text-amber-400">0.0%</p>
     </div>
     <div class="card p-5 border-t-2 border-emerald-500">
@@ -792,14 +792,18 @@ function updateRevenueMetrics() {
     const rev = parseFloat(document.getElementById('inputRevenue').value)||0;
     const tot = allData.length||0;
     let paying = 0;
-    if (tot > 0) paying = allData.filter(d=>(salesMap[normalizeName(d.NAME)]||0)>0).length;
-    const stk  = mau>0 ? ((dau/mau)*100).toFixed(1) : 0;
-    const pur  = tot>0  ? ((paying/tot)*100).toFixed(1) : 0;
+    if (tot > 0) paying = allData.filter(d => d.lvNum >= 2 && (salesMap[normalizeName(d.NAME)] || 0) > 0).length;
+    const totLv2 = allData.filter(d => d.lvNum >= 2).length;
+    const pur  = totLv2>0  ? ((paying/totLv2)*100).toFixed(1) : 0;
+    const dates = allData.map(d=>d.date).filter(d=>d&&d.isValid());
+    const elapsedDays = dates.length > 0 ? Math.max(1, dayjs().diff(dayjs.min(dates), 'day')) : 0;
+    const forecast = elapsedDays > 0 ? Math.floor((rev / elapsedDays) * 30) : 0;
     const arpu = tot>0  ? Math.floor(rev/tot) : 0;
+    const stk  = mau>0 ? ((dau/mau)*100).toFixed(1) : 0;
     document.getElementById('kpi-stickiness').innerText = stk+'%';
     document.getElementById('kpi-pur').innerText        = pur+'%';
     document.getElementById('kpi-arppu').innerText      = '¥ '+(paying>0?Math.floor(rev/paying):0).toLocaleString();
-    document.getElementById('kpi-forecast').innerText   = '¥ '+Math.floor(dau*arpu).toLocaleString();
+    document.getElementById('kpi-forecast').innerText   = '¥ '+forecast.toLocaleString();
 }
 ['inputDau','inputWau','inputMau','inputRevenue'].forEach(id =>
     document.getElementById(id).addEventListener('input', updateRevenueMetrics));
@@ -1038,8 +1042,9 @@ function setHeatTab(mode, btn) {
 function renderHeatmap() {
     const container=document.getElementById('heatmapContainer');
     const empty=document.getElementById('heatmapEmpty');
-    if (!salesRawData.length){empty.classList.remove('hidden');container.innerHTML='<p id="heatmapEmpty" class="text-center text-slate-500 text-sm py-8">売上CSVを読み込むと表示されます</p>';return;}
-    empty.classList.add('hidden');
+    if (!salesRawData.length){container.innerHTML='<p id="heatmapEmpty" class="text-center text-slate-500 text-sm py-8">売上CSVを読み込むと表示されます</p>';return;}
+    if (empty) empty.classList.add('hidden');
+    
 
     // [曜日0-6(月=0)][時間0-23]
     const grid=Array.from({length:7},()=>new Array(24).fill(0));
