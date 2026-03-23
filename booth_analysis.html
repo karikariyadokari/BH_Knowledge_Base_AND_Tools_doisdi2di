@@ -2,437 +2,1117 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Bounty Hunters 稼働分析ツール v4</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Booth Intelligence Dashboard</title>
     <link rel="icon" href="favicon.ico">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
-        :root {
-            --primary: #1a73e8; --bg: #f4f7f9; --win: #28a745;
-            --assist: #f39c12; --error: #dc3545; --text: #3c4043; --border: #dee2e6;
+        body { background-color: #0f172a; color: #e2e8f0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        .card { background-color: #1e293b; border: 1px solid #334155; border-radius: 12px; }
+        .section-title { font-size: 0.7rem; font-weight: 700; letter-spacing: 0.12em; color: #64748b; text-transform: uppercase; margin-bottom: 1rem; }
+        .input-field { background-color: #334155; border: 1px solid #475569; color: #fff; border-radius: 6px; padding: 8px 12px; width: 100%; outline: none; }
+        .input-field:focus { border-color: #38bdf8; box-shadow: 0 0 0 1px #38bdf8; }
+        ::-webkit-calendar-picker-indicator { filter: invert(1); cursor: pointer; }
+        .tab-btn  { padding: 5px 14px; border-radius: 6px; font-size: 0.75rem; font-weight: 700; cursor: pointer; border: 1px solid #334155; color: #94a3b8; background: transparent; transition: all 0.15s; }
+        .tab-btn.active  { background: #0f172a; color: #38bdf8; border-color: #38bdf8; }
+        .tab-btn:hover:not(.active)  { color: #e2e8f0; border-color: #475569; }
+        .sort-btn { padding: 4px 10px; border-radius: 5px; font-size: 0.72rem; font-weight: 700; cursor: pointer; border: 1px solid #334155; color: #94a3b8; background: transparent; transition: all 0.15s; white-space: nowrap; }
+        .sort-btn.active { background: #0f172a; color: #38bdf8; border-color: #38bdf8; }
+        .sort-btn:hover:not(.active) { color: #e2e8f0; border-color: #475569; }
+        .heatmap-grid { display: grid; gap: 2px; }
+        .heatmap-cell { border-radius: 3px; aspect-ratio: 1; min-width: 0; transition: transform 0.1s; cursor: default; }
+        .heatmap-cell:hover { transform: scale(1.3); z-index: 10; position: relative; }
+        .heatmap-label  { font-size: 0.6rem; color: #64748b; display: flex; align-items: center; justify-content: flex-end; padding-right: 4px; white-space: nowrap; overflow: hidden; }
+        .heatmap-hlabel { font-size: 0.6rem; color: #64748b; text-align: center; }
+        .upload-area { border: 2px dashed #334155; border-radius: 8px; transition: 0.2s; }
+        .upload-area:hover, .upload-area.dragover { border-color: #38bdf8; background: rgba(56,189,248,0.05); }
+        .sync-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
+        .sync-dot.idle    { background: #475569; }
+        .sync-dot.loading { background: #f59e0b; animation: blink 1s infinite; }
+        .sync-dot.ok      { background: #10b981; }
+        .sync-dot.error   { background: #ef4444; }
+        @keyframes blink { 0%,100%{opacity:1}50%{opacity:0.3} }
+        .booth-body { display: none; }
+        .booth-body.open { display: block; }
+        .chevron { transition: transform 0.2s; display: inline-block; }
+        .chevron.open { transform: rotate(180deg); }
+        @media print {
+            body { background:#fff !important; color:#111 !important; }
+            .card { background:#f8fafc !important; border-color:#cbd5e1 !important; break-inside:avoid; }
+            .no-print { display:none !important; }
+            canvas { max-height:220px !important; }
         }
-        body { font-family: 'Helvetica Neue', Arial, sans-serif; background-color: var(--bg); color: var(--text); margin: 0; padding: 20px; }
-        .container { max-width: 1300px; margin: 0 auto; }
-        
-        header { background: #fff; padding: 25px; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); margin-bottom: 25px; }
-        .header-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; flex-wrap: wrap; gap: 15px; }
-        
-        .title-area { display: flex; align-items: center; gap: 15px; }
-        h1 { margin: 0; font-size: 1.4rem; color: var(--primary); display: flex; align-items: center; }
-        h1::before { content: "📊"; margin-right: 10px; }
-
-        .header-actions { display: flex; flex-direction: column; gap: 10px; align-items: flex-end; }
-        .control-group { display: flex; align-items: center; gap: 10px; font-weight: bold; color: #5f6368; font-size: 14px; }
-        .input-ui { padding: 6px 12px; border: 1px solid var(--border); border-radius: 6px; font-size: 14px; outline: none; cursor: pointer; color: var(--text); }
-        .input-ui:focus { border-color: var(--primary); }
-
-        .upload-area { border: 2px dashed #cbd5e0; padding: 30px; text-align: center; background: #f8fbff; border-radius: 10px; cursor: pointer; transition: 0.3s; }
-        .upload-area:hover, .upload-area.dragover { border-color: var(--primary); background: #e8f0fe; }
-
-        .controls { display: flex; gap: 10px; margin-top: 20px; align-items: center; flex-wrap: wrap; }
-        .btn { padding: 10px 18px; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 13px; transition: 0.2s; text-decoration: none; display: inline-flex; align-items: center; }
-        .btn-blue { background: var(--primary); color: white; }
-        .btn-outline { background: white; border: 1px solid var(--border); color: #5f6368; }
-        .btn:hover:not(:disabled) { opacity: 0.8; transform: translateY(-1px); }
-        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
-        .btn-small { padding: 6px 12px; font-size: 12px; }
-
-        .machine-card { background: white; border: 1px solid var(--border); border-radius: 10px; margin-bottom: 15px; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
-        .machine-header { padding: 18px 25px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; background: #fff; border-radius: 10px; }
-        .machine-header:hover { background: #fafafa; }
-        .name-section { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-        .rename-input { border: 1px solid transparent; font-size: 1.1rem; font-weight: bold; padding: 5px 10px; width: 200px; border-radius: 4px; color: #202124; }
-        .rename-input:focus { border-color: var(--primary); background: #fff; outline: none; }
-        .tag-input { width: 90px; font-size: 0.9rem; color: var(--primary); border: 1px dashed #cbd5e0; }
-        .tag-input:focus { border-style: solid; }
-        .mac-label { color: #80868b; font-family: monospace; font-size: 0.85rem; }
-
-        .quick-stats { display: flex; gap: 20px; align-items: center; }
-        .q-item { text-align: center; line-height: 1.2; }
-        .q-label { font-size: 11px; color: #70757a; display: block; margin-bottom: 2px; }
-        .q-val { font-size: 15px; font-weight: bold; }
-
-        .machine-content { display: none; padding: 0 25px 25px 25px; border-top: 1px solid #f1f3f4; background: #fff; border-radius: 0 0 10px 10px; }
-        .is-open .machine-content { display: block; }
-        .table-controls { display: flex; justify-content: flex-end; padding: 15px 0; }
-
-        table { width: 100%; border-collapse: collapse; font-size: 13px; }
-        th { background: #f8f9fa; color: #5f6368; font-weight: 600; padding: 12px 8px; border-bottom: 2px solid var(--border); }
-        td { padding: 12px 8px; border-bottom: 1px solid #f1f3f4; text-align: center; }
-        tr:hover { background-color: #fcfcfc; }
-
-        .col-win { color: var(--win); font-weight: bold; }
-        .col-ast { color: var(--assist); font-weight: bold; }
-        .col-err { color: var(--error); }
-        .col-total { font-weight: bold; background: #f8f9fa; }
-        .col-avg { background: #fffdf0; font-weight: 900; font-size: 1.1em; color: #d93025; }
-        .pdf-only { display: none; }
+        ::-webkit-scrollbar { width:6px; height:6px; }
+        ::-webkit-scrollbar-track { background:#0f172a; }
+        ::-webkit-scrollbar-thumb { background:#334155; border-radius:3px; }
     </style>
 </head>
-<body>
+<body class="p-4 md:p-6">
+<div class="max-w-[1600px] mx-auto">
 
-<div class="container">
-    <header>
-        <div class="header-top">
-            <div class="title-area">
-                <a href="index.html" class="btn btn-outline">🏠 TOPへ戻る</a>
-                <h1>Bounty Hunters 稼働分析ダッシュボード</h1>
-            </div>
-            
-            <div class="header-actions">
-                <div class="control-group">
-                    <label>期間指定:</label>
-                    <input type="date" id="startDate" class="input-ui" onchange="render()">
-                    <span>～</span>
-                    <input type="date" id="endDate" class="input-ui" onchange="render()">
-                    <button class="btn btn-outline btn-small" onclick="clearDateFilter()">クリア</button>
-                </div>
-                <div class="control-group">
-                    <label for="tagFilter">タグ絞り込み:</label>
-                    <select id="tagFilter" class="input-ui" onchange="render()">
-                        <option value="">すべて</option>
-                    </select>
-                </div>
-                <div class="control-group">
-                    <label for="sortOrder">並び順:</label>
-                    <select id="sortOrder" class="input-ui" onchange="render()">
-                        <option value="name">名前順 (A-Z)</option>
-                        <option value="mac">MACアドレス順</option>
-                    </select>
-                </div>
+<!-- ヘッダー -->
+<div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4 no-print">
+    <div>
+        <h1 class="text-3xl font-extrabold tracking-tight">Booth Intelligence <span style="color:#38bdf8">Dashboard</span></h1>
+        <p class="text-slate-400 text-sm mt-1">オンラインクレーン ブース稼働分析</p>
+    </div>
+    <div class="flex flex-col gap-2 items-end">
+        <div class="flex items-center gap-2 flex-wrap justify-end">
+            <a href="index.html" class="bg-slate-700 hover:bg-slate-600 text-white text-sm font-bold py-2 px-4 rounded-md border border-slate-600">🏠 TOPへ戻る</a>
+            <button onclick="window.print()" class="bg-slate-700 hover:bg-slate-600 text-white text-sm font-bold py-2 px-4 rounded-md border border-slate-600">🖨 印刷</button>
+            <button onclick="toggleFeePanel()" class="bg-amber-700 hover:bg-amber-600 text-white text-sm font-bold py-2 px-4 rounded-md border border-amber-600">🪙 プレイ料金設定</button>
+            <button onclick="toggleManual()" class="bg-slate-700 hover:bg-slate-600 text-white text-sm font-bold py-2 px-4 rounded-md border border-slate-600">📖 マニュアル</button>
+            <button onclick="toggleSyncPanel()" class="bg-indigo-700 hover:bg-indigo-600 text-white text-sm font-bold py-2 px-4 rounded-md border border-indigo-500 flex items-center gap-2">
+                🔄 Drive同期 <span id="syncDot" class="sync-dot idle"></span>
+            </button>
+        </div>
+        <div class="bg-sky-900/50 p-2 rounded-md border border-sky-700 flex items-center gap-3 no-print">
+            <span class="text-xs font-bold text-sky-300 ml-1">CSVファイル:</span>
+            <input type="file" id="fileInput" multiple accept=".csv"
+                class="text-sm text-slate-300 file:mr-3 file:py-1 file:px-3 file:rounded-md file:border-0 file:bg-sky-600 file:text-white hover:file:bg-sky-500 cursor-pointer">
+            <div id="dropLabel" class="upload-area px-3 py-1.5 text-xs text-slate-400 cursor-pointer select-none"
+                 onclick="document.getElementById('fileInput').click()">またはドロップ</div>
+        </div>
+    </div>
+</div>
+
+<!-- フィルター -->
+<div class="card p-4 mb-4 no-print">
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-3 items-end">
+        <div class="col-span-2">
+            <label class="block text-xs font-bold text-slate-300 mb-1">期間指定</label>
+            <div class="flex gap-1 items-center">
+                <input type="date" id="startDate" class="input-field text-sm">
+                <span class="text-slate-400 text-xs px-1">〜</span>
+                <input type="date" id="endDate" class="input-field text-sm">
+                <button onclick="clearDateFilter()" class="ml-1 text-xs text-slate-400 hover:text-white border border-slate-600 rounded px-2 py-1.5 whitespace-nowrap">クリア</button>
             </div>
         </div>
-
-        <div class="upload-area" id="dropZone" onclick="document.getElementById('fileInput').click()">
-            <p style="margin:0; font-size:15px; color:#5f6368;">
-                <strong>CSVファイルをドロップ</strong> またはクリックして選択<br>
-                <span style="font-size:12px; color:#9aa0a6;">(150ファイル程度まで一括処理可能)</span>
-            </p>
-            <input type="file" id="fileInput" multiple accept=".csv" style="display:none">
+        <div>
+            <label class="block text-xs font-bold text-slate-300 mb-1">タグ絞り込み</label>
+            <select id="tagFilter" class="input-field text-sm"><option value="">すべて</option></select>
         </div>
-        
-        <div class="controls">
-            <button class="btn btn-outline" onclick="exportJSON()">JSON保存</button>
-            <button class="btn btn-outline" onclick="document.getElementById('importInput').click()">JSON読込</button>
+        <button onclick="applyFilters()" class="bg-sky-600 hover:bg-sky-500 text-white font-bold py-2 px-4 rounded-md text-sm">絞り込み適用</button>
+    </div>
+</div>
+
+<!-- KPI -->
+<div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+    <div class="card p-5 border-t-2 border-sky-500">
+        <p class="text-slate-400 text-xs font-bold">総プレイ手数</p>
+        <p id="kpi-plays" class="text-3xl font-bold mt-1 text-white">-</p>
+        <p id="kpi-plays-sub" class="text-slate-500 text-xs mt-1"></p>
+    </div>
+    <div class="card p-5 border-t-2 border-emerald-500">
+        <p class="text-slate-400 text-xs font-bold">推定売上 (ゲーム内通貨)</p>
+        <p id="kpi-revenue" class="text-3xl font-bold mt-1 text-emerald-400">-</p>
+        <p id="kpi-revenue-sub" class="text-slate-500 text-xs mt-1"></p>
+    </div>
+    <div class="card p-5 border-t-2 border-amber-500">
+        <p class="text-slate-400 text-xs font-bold">平均獲得手数 (全体)</p>
+        <p id="kpi-avg-turns" class="text-3xl font-bold mt-1 text-amber-400">-</p>
+        <p class="text-slate-500 text-xs mt-1">Win+Assist あたり</p>
+    </div>
+    <div class="card p-5 border-t-2 border-purple-500">
+        <p class="text-slate-400 text-xs font-bold">稼働ブース数</p>
+        <p id="kpi-booths" class="text-3xl font-bold mt-1 text-purple-400">-</p>
+        <p id="kpi-booths-sub" class="text-slate-500 text-xs mt-1"></p>
+    </div>
+</div>
+
+<!-- ROW1: 日次トレンド + ブース別 -->
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
+    <div class="card p-5">
+        <p class="section-title">日次プレイ数トレンド</p>
+        <div class="h-[260px]"><canvas id="trendChart"></canvas></div>
+    </div>
+    <div class="card p-5">
+        <p class="section-title">ブース別 総プレイ手数 (上位15)</p>
+        <div class="h-[260px]"><canvas id="boothChart"></canvas></div>
+    </div>
+</div>
+
+<!-- ROW2: 売上トレンド -->
+<div class="card p-5 mb-4">
+    <div class="flex items-center justify-between mb-3">
+        <div>
+            <p class="section-title mb-0">推定売上トレンド (ゲーム内通貨)</p>
+            <p class="text-xs text-slate-500 mt-0.5">プレイ手数 × 設定プレイ料金で算出</p>
+        </div>
+        <div class="flex gap-2 no-print">
+            <button class="tab-btn active" onclick="setRevTab('daily',this)">日次</button>
+            <button class="tab-btn"        onclick="setRevTab('weekly',this)">週次</button>
+        </div>
+    </div>
+    <div class="h-[200px]"><canvas id="revTrendChart"></canvas></div>
+</div>
+
+<!-- ROW3: 結果内訳 + エラー内訳 -->
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
+    <div class="card p-5">
+        <p class="section-title">結果内訳 (全体)</p>
+        <div class="flex gap-4 items-center">
+            <div class="flex-shrink-0" style="width:170px;height:170px"><canvas id="resultChart"></canvas></div>
+            <div id="resultLegend" class="space-y-2 text-xs flex-1"></div>
+        </div>
+    </div>
+    <div class="card p-5">
+        <p class="section-title">エラー種別内訳</p>
+        <div class="flex gap-4 items-center">
+            <div class="flex-shrink-0" style="width:170px;height:170px"><canvas id="errorChart"></canvas></div>
+            <div id="errorLegend" class="space-y-1 text-xs flex-1"></div>
+        </div>
+    </div>
+</div>
+
+<!-- ROW4: ヒートマップ -->
+<div class="card p-5 mb-4">
+    <div class="flex items-center justify-between mb-3">
+        <div>
+            <p class="section-title mb-0">時間帯別・ブース別 稼働ヒートマップ</p>
+            <p class="text-xs text-slate-500 mt-0.5">縦: ブース / 横: 0〜23時 (JST)</p>
+        </div>
+        <div class="flex gap-2 no-print">
+            <button class="tab-btn active" onclick="setHeatTab('plays',this)">プレイ数</button>
+            <button class="tab-btn"        onclick="setHeatTab('revenue',this)">売上</button>
+        </div>
+    </div>
+    <div id="heatmapContainer" class="overflow-x-auto">
+        <p class="text-center text-slate-500 text-sm py-8">CSVを読み込むと表示されます</p>
+    </div>
+    <div class="flex items-center gap-2 mt-2 text-xs text-slate-500">
+        <span>少</span>
+        <div class="flex gap-0.5">
+            <div class="w-4 h-3 rounded-sm" style="background:#1e293b"></div>
+            <div class="w-4 h-3 rounded-sm" style="background:#0c4a6e"></div>
+            <div class="w-4 h-3 rounded-sm" style="background:#0284c7"></div>
+            <div class="w-4 h-3 rounded-sm" style="background:#0ea5e9"></div>
+            <div class="w-4 h-3 rounded-sm" style="background:#38bdf8"></div>
+            <div class="w-4 h-3 rounded-sm" style="background:#7dd3fc"></div>
+        </div>
+        <span>多</span>
+    </div>
+</div>
+
+<!-- ROW5: 時間帯別 + 曜日別 -->
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
+    <div class="card p-5">
+        <p class="section-title">時間帯別 プレイ数 (JST)</p>
+        <div class="h-[240px]"><canvas id="hourlyChart"></canvas></div>
+    </div>
+    <div class="card p-5">
+        <p class="section-title">曜日別 プレイ数</p>
+        <div class="h-[240px]"><canvas id="dowChart"></canvas></div>
+    </div>
+</div>
+
+<!-- ブース別詳細 -->
+<div class="mb-8">
+    <div class="flex flex-wrap justify-between items-center gap-3 mb-3">
+        <div class="flex items-center gap-3 flex-wrap">
+            <h3 class="text-sm font-bold text-white">ブース別詳細 <span id="listCount" class="text-xs text-slate-400 font-normal"></span></h3>
+            <div class="flex items-center gap-1 flex-wrap">
+                <span class="text-xs text-slate-500">並び替え:</span>
+                <button class="sort-btn active" data-col="plays"   onclick="setBoothSort('plays')">プレイ数</button>
+                <button class="sort-btn"        data-col="name"    onclick="setBoothSort('name')">名前</button>
+                <button class="sort-btn"        data-col="w"       onclick="setBoothSort('w')">通常Win</button>
+                <button class="sort-btn"        data-col="a"       onclick="setBoothSort('a')">アシスト</button>
+                <button class="sort-btn"        data-col="revenue" onclick="setBoothSort('revenue')">推定売上</button>
+                <button class="sort-btn"        data-col="errors"  onclick="setBoothSort('errors')">エラー</button>
+                <span id="sortDirLabel" class="text-xs text-slate-500 ml-1">↓ 多い順</span>
+            </div>
+        </div>
+        <div class="flex items-center gap-2 no-print flex-wrap">
+            <button onclick="toggleAllBooths(true)"  class="bg-slate-700 hover:bg-slate-600 text-slate-300 text-xs font-bold py-1.5 px-3 rounded border border-slate-600">全て展開</button>
+            <button onclick="toggleAllBooths(false)" class="bg-slate-700 hover:bg-slate-600 text-slate-300 text-xs font-bold py-1.5 px-3 rounded border border-slate-600">全て閉じる</button>
+            <button onclick="exportCSV()"  class="bg-emerald-700 hover:bg-emerald-600 text-white text-xs font-bold py-1.5 px-3 rounded">⬇ CSVエクスポート</button>
+            <button onclick="exportJSON()" class="bg-slate-600 hover:bg-slate-500 text-white text-xs font-bold py-1.5 px-3 rounded">JSON保存</button>
+            <button onclick="document.getElementById('importInput').click()" class="bg-slate-600 hover:bg-slate-500 text-white text-xs font-bold py-1.5 px-3 rounded">JSON読込</button>
             <input type="file" id="importInput" accept=".json" style="display:none" onchange="importJSON(this)">
-            
-            <button class="btn btn-blue" onclick="loadFromDrive()" id="btn-drive-load">☁️ Driveから読込</button>
-            <button class="btn btn-blue" onclick="saveToDrive(false)" id="btn-drive">☁️ Driveへ同期</button>
-            
-            <button class="btn btn-outline" onclick="clearData()" style="color:#d93025; margin-left:auto;">データ全消去</button>
+            <button onclick="clearData()" class="bg-red-900/50 hover:bg-red-900 text-red-300 text-xs font-bold py-1.5 px-3 rounded border border-red-800">全消去</button>
         </div>
-    </header>
+    </div>
+    <div id="boothAccordion" class="space-y-2"></div>
+</div>
 
-    <div id="machineList"></div>
+</div><!-- /container -->
+
+<!-- プレイ料金パネル -->
+<div id="feePanel" class="hidden fixed inset-0 bg-black/70 z-50 flex justify-center items-center p-4 no-print">
+    <div class="bg-slate-800 rounded-xl shadow-2xl w-full max-w-lg border border-amber-700/60">
+        <div class="p-5 border-b border-slate-700 flex justify-between items-center">
+            <h2 class="text-base font-bold text-white">🪙 プレイ料金設定</h2>
+            <button onclick="toggleFeePanel()" class="text-slate-400 hover:text-white text-2xl leading-none">&times;</button>
+        </div>
+        <div class="p-5 space-y-4 text-sm">
+            <div class="bg-slate-900/50 p-3 rounded border border-slate-700 text-xs text-slate-400">
+                CSVにはプレイ料金が含まれないため手動設定してください。<br>
+                <strong class="text-white">設定料金 × プレイ手数</strong> で推定売上を算出します。
+            </div>
+            <div>
+                <label class="block text-xs font-bold text-slate-300 mb-1">デフォルト料金 (全ブース共通 / 1プレイ)</label>
+                <div class="flex gap-2 items-center">
+                    <input type="number" id="defaultFee" class="input-field font-bold text-amber-300 text-lg" value="100" min="0" style="max-width:140px">
+                    <span class="text-slate-400 text-xs">コイン / プレイ</span>
+                </div>
+            </div>
+            <div>
+                <label class="block text-xs font-bold text-slate-300 mb-1">ブース個別設定（空欄=デフォルト使用）</label>
+                <div id="boothFeeList" class="space-y-1.5 max-h-[260px] overflow-y-auto pr-1">
+                    <p class="text-slate-500 text-xs italic">CSVを読み込むとブース一覧が表示されます</p>
+                </div>
+            </div>
+        </div>
+        <div class="p-4 border-t border-slate-700 flex justify-between">
+            <button onclick="resetFees()" class="text-slate-400 hover:text-white text-xs font-bold py-2 px-3 rounded">全リセット</button>
+            <div class="flex gap-2">
+                <button onclick="toggleFeePanel()" class="bg-slate-600 hover:bg-slate-500 text-white font-bold py-2 px-4 rounded text-sm">閉じる</button>
+                <button onclick="applyFees()" class="bg-amber-600 hover:bg-amber-500 text-white font-bold py-2 px-5 rounded text-sm">適用して更新</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Drive同期パネル -->
+<div id="syncPanel" class="hidden fixed inset-0 bg-black/70 z-50 flex justify-center items-center p-4 no-print">
+    <div class="bg-slate-800 rounded-xl shadow-2xl w-full max-w-xl border border-indigo-700/60">
+        <div class="p-5 border-b border-slate-700 flex justify-between items-center">
+            <h2 class="text-base font-bold text-white">🔄 Google Drive 同期</h2>
+            <button onclick="toggleSyncPanel()" class="text-slate-400 hover:text-white text-2xl leading-none">&times;</button>
+        </div>
+        <div class="p-5 space-y-4 text-sm">
+            <div>
+                <label class="block text-xs font-bold text-slate-300 mb-1">GAS ウェブアプリ URL</label>
+                <input type="text" id="gasUrl" class="input-field text-xs font-mono" placeholder="https://script.google.com/macros/s/XXXXX/exec">
+            </div>
+            <div class="flex items-center justify-between bg-slate-700/40 rounded px-4 py-2.5 border border-slate-600">
+                <div>
+                    <p class="text-xs font-bold text-slate-200">ページ読み込み時に自動でDriveから取得</p>
+                    <p class="text-xs text-slate-500 mt-0.5">URLを保存済みの場合、開くたびに最新データを反映</p>
+                </div>
+                <label class="flex items-center gap-2 cursor-pointer select-none ml-4">
+                    <div class="relative flex-shrink-0">
+                        <input type="checkbox" id="autoSync" class="sr-only" onchange="onAutoSyncChange()">
+                        <div id="toggleBg" class="w-10 h-5 bg-slate-600 rounded-full transition-colors"></div>
+                        <div id="toggleDot" class="absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform"></div>
+                    </div>
+                </label>
+            </div>
+            <div id="syncStatusMsg" class="hidden rounded px-4 py-2.5 text-xs font-semibold"></div>
+        </div>
+        <div class="p-4 border-t border-slate-700 flex flex-wrap justify-between items-center gap-2">
+            <span id="syncLastFetched" class="text-xs text-slate-500"></span>
+            <div class="flex gap-2">
+                <button onclick="toggleSyncPanel()" class="bg-slate-600 hover:bg-slate-500 text-white font-bold py-2 px-4 rounded text-sm">閉じる</button>
+                <button onclick="uploadToDrive(false)" class="bg-amber-600 hover:bg-amber-500 text-white font-bold py-2 px-4 rounded text-sm">☁ Driveに保存</button>
+                <button onclick="syncFromDrive()"      class="bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-2 px-4 rounded text-sm">🔄 Driveから取得</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- マニュアル -->
+<div id="manualModal" class="hidden fixed inset-0 bg-black/80 z-50 flex justify-center items-center p-4 no-print">
+    <div class="bg-slate-800 rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col border border-slate-600">
+        <div class="p-5 border-b border-slate-700 flex justify-between items-center bg-slate-900">
+            <h2 class="text-base font-bold text-white">📖 利用マニュアル</h2>
+            <button onclick="toggleManual()" class="text-slate-400 hover:text-white text-2xl leading-none">&times;</button>
+        </div>
+        <div class="p-5 overflow-y-auto text-slate-300 space-y-4 flex-1 text-sm leading-relaxed">
+            <section>
+                <h3 class="text-base font-bold text-sky-400 border-b border-slate-700 pb-1 mb-2">1. CSVの読み込み</h3>
+                <p>右上「CSVファイル」からアップロード（複数可、ドラッグ&ドロップ対応）。</p>
+                <div class="mt-2 bg-slate-900/50 p-3 rounded border border-slate-700 text-xs space-y-1">
+                    <p><strong class="text-white">対応カラム:</strong> ROW, MAC, ENV, TYPE, TIME, NOTE, INFO</p>
+                    <p>TIME は UTC → JST(+9h) 自動変換。2026-01-29 より前はテストデータとして除外。</p>
+                    <p><strong class="text-white">集計TYPE:</strong> WIN_TURN / LOSE_TURN / DISCONNECTED_BY_APPLICATION / ERROR_MACHINE_NO_RESPONSE(Err:NR) / ERROR_MACHINE_REPORT(Err:MR) / ERROR(Err) / その他ERROR系(Err:他) / MAINTAIN_ON</p>
+                </div>
+            </section>
+            <section>
+                <h3 class="text-base font-bold text-amber-400 border-b border-slate-700 pb-1 mb-2">2. プレイ料金設定</h3>
+                <p>「🪙 プレイ料金設定」でゲーム内通貨のコストを設定。デフォルト料金は全ブース共通、ブース個別設定で上書き可。「適用して更新」で再計算されます。</p>
+            </section>
+            <section>
+                <h3 class="text-base font-bold text-sky-400 border-b border-slate-700 pb-1 mb-2">3. ブース別詳細</h3>
+                <p>ブース行をクリックで日付別テーブル展開。並び替えボタンで順序変更（同ボタン再クリックで昇順⇔降順）。ブース名・タグは直接クリックして編集。</p>
+            </section>
+        </div>
+        <div class="p-4 border-t border-slate-700 bg-slate-900 text-right">
+            <button onclick="toggleManual()" class="bg-sky-600 hover:bg-sky-500 text-white font-bold py-2 px-6 rounded">閉じる</button>
+        </div>
+    </div>
 </div>
 
 <script>
-let db = {};
-const CEILING = 20;
-// ★ここにGASでデプロイしたウェブアプリのURLを貼り付けてください★
-const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwoOKfXwnbmfsYKeTx9WgBeO9bVQ_3x0bDOsZMYXQm1R5ZlPNBBo_Jbh-XHt8HfbSuESQ/exec";
+'use strict';
 
-window.onload = () => {
-    const saved = localStorage.getItem('bh_v4_db');
-    if (saved) { db = JSON.parse(saved); render(); }
-    setupDragAndDrop();
-};
+// ============================================================
+// 定数
+// ============================================================
+const CEILING      = 20;
+const RELEASE_DATE = '2026-01-29';
+const GAS_URL_KEY  = 'bh2_gas_url';
+const GAS_AUTO_KEY = 'bh2_gas_auto';
+const DB_KEY       = 'bh2_db';
+const GC = '#1e293b', TC = '#64748b';
 
-function setupDragAndDrop() {
-    const dropZone = document.getElementById('dropZone');
-    dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('dragover'); });
-    dropZone.addEventListener('dragleave', (e) => { e.preventDefault(); dropZone.classList.remove('dragover'); });
-    dropZone.addEventListener('drop', (e) => {
-        e.preventDefault(); dropZone.classList.remove('dragover');
-        const files = e.dataTransfer.files;
-        if (files.length > 0) { handleFiles({ target: { files: files } }); }
+// ============================================================
+// グローバル状態
+// ============================================================
+let db           = {};
+let feeSettings  = {};
+let heatMode     = 'plays';
+let revTabMode   = 'daily';
+let sortState    = { col: 'plays', dir: 'desc' };
+let lastStats    = {};   // ★ renderAll が生成した boothStats を保持 → ソート時に再利用
+const openBooths = new Set();
+const charts     = {};
+
+// ============================================================
+// ユーティリティ
+// ============================================================
+function esc(s) {
+    return String(s == null ? '' : s)
+        .replace(/&/g,'&amp;').replace(/"/g,'&quot;')
+        .replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+function mkChart(id, type, data, opts) {
+    if (charts[id]) { charts[id].destroy(); }
+    const el = document.getElementById(id);
+    if (!el) return;
+    charts[id] = new Chart(el, {
+        type, data,
+        options: { responsive:true, maintainAspectRatio:false, animation:{duration:300}, ...opts }
     });
 }
 
-document.getElementById('fileInput').addEventListener('change', handleFiles);
+// ============================================================
+// 初期化
+// ============================================================
+window.addEventListener('DOMContentLoaded', () => {
+    // ドラッグ&ドロップ
+    document.body.addEventListener('dragover', e => {
+        e.preventDefault();
+        document.getElementById('dropLabel').classList.add('dragover');
+    });
+    document.body.addEventListener('dragleave', e => {
+        if (!e.relatedTarget) document.getElementById('dropLabel').classList.remove('dragover');
+    });
+    document.body.addEventListener('drop', e => {
+        e.preventDefault();
+        document.getElementById('dropLabel').classList.remove('dragover');
+        if (e.dataTransfer.files.length) processFiles(e.dataTransfer.files);
+    });
+    document.getElementById('fileInput').addEventListener('change', e => {
+        if (e.target.files.length) processFiles(e.target.files);
+    });
 
-async function handleFiles(e) {
-    const files = Array.from(e.target.files);
-    const batchRoomData = {};
+    // ローカルストレージ復元
+    try {
+        const saved = localStorage.getItem(DB_KEY);
+        if (saved) { db = JSON.parse(saved); renderAll(); }
+    } catch(_) {}
 
-    for (const file of files) {
-        const text = await file.text();
-        parse(text, batchRoomData);
+    // GAS 自動同期
+    const url  = localStorage.getItem(GAS_URL_KEY) || '';
+    const auto = localStorage.getItem(GAS_AUTO_KEY) === '1';
+    if (url) document.getElementById('gasUrl').value = url;
+    if (auto && url) { setAutoToggleUI(true); syncFromDrive(); }
+});
+
+// ============================================================
+// CSV 読み込み
+// ============================================================
+async function processFiles(files) {
+    const batchRoom = {};
+    for (const file of Array.from(files)) {
+        parseCSV(await file.text(), batchRoom);
     }
-    
-    Object.keys(batchRoomData).forEach(rid => {
-        const r = batchRoomData[rid];
+    // アシスト補正
+    for (const rid of Object.keys(batchRoom)) {
+        const r   = batchRoom[rid];
         const log = db[r.mac]?.logs[r.date];
-        if (!log) return;
+        if (!log) continue;
         if (!r.hasWin) {
-            if (r.loses >= CEILING) { log.a += Math.floor(r.loses / CEILING); } 
-            else if (r.loses > 0) { log.drop++; }
+            if (r.loses >= CEILING) log.a += Math.floor(r.loses / CEILING);
+            else if (r.loses > 0)  log.drop++;
         }
-    });
-
-    // ★ CSV読み込み後に自動でDriveへ同期 (引数trueで通知なし)
-    save(true);
+    }
+    persistAndRender(true);
 }
 
-function parse(text, batchRoomData) {
+function splitLine(line) {
+    const out = []; let cur = '', inQ = false;
+    for (let i = 0; i < line.length; i++) {
+        const ch = line[i];
+        if (ch === '"') {
+            if (inQ && line[i+1] === '"') { cur += '"'; i++; }
+            else inQ = !inQ;
+        } else if (ch === ',' && !inQ) { out.push(cur); cur = ''; }
+        else cur += ch;
+    }
+    out.push(cur);
+    return out;
+}
+
+function parseCSV(text, batchRoom) {
     const lines = text.split(/\r?\n/);
     if (lines.length < 2) return;
-    const headers = lines[0].replace(/"/g, '').split(',');
-    const idx = {
-        mac: headers.findIndex(h => h.trim() === 'MAC'),
-        type: headers.findIndex(h => h.trim() === 'TYPE'),
-        time: headers.findIndex(h => h.trim() === 'TIME'),
-        info: headers.findIndex(h => h.trim() === 'INFO')
+    const hdrs = splitLine(lines[0]);
+    const ix = {
+        mac:  hdrs.indexOf('MAC'),
+        type: hdrs.indexOf('TYPE'),
+        time: hdrs.indexOf('TIME'),
+        info: hdrs.indexOf('INFO'),
     };
+    if (ix.mac < 0 || ix.type < 0 || ix.time < 0) return;
 
     for (let i = 1; i < lines.length; i++) {
-        const cols = lines[i].split('","').map(c => c.replace(/"/g, ''));
-        if (cols.length <= idx.time) continue;
+        if (!lines[i].trim()) continue;
+        const c   = splitLine(lines[i]);
+        const mac = c[ix.mac]  || '';
+        const typ = c[ix.type] || '';
+        if (!mac || !typ || mac === 'MAC') continue;
 
-        const mac = cols[idx.mac];
-        const type = cols[idx.type];
-        
-        const utcTime = new Date(cols[idx.time]); 
-        utcTime.setHours(utcTime.getHours() + 9); 
-        const date = utcTime.toISOString().split('T')[0];
+        const utc = new Date(c[ix.time]);
+        if (isNaN(utc)) continue;
+        const jst  = new Date(utc.getTime() + 9 * 3600000);
+        const date = jst.toISOString().slice(0, 10);
+        const hour = jst.getUTCHours();
+        if (date < RELEASE_DATE) continue;
 
-        const rid = cols[idx.info]?.match(/room: (\d+)/)?.[1] || cols[idx.info]?.match(/'room_id':'(\d+)'/)?.[1];
+        const info = c[ix.info] || '';
+        const rid  = info.match(/'room_id':'(\d+)'/)?.[1];
 
-        if (!db[mac]) db[mac] = { name: mac, tag: "", logs: {} };
-        if (!db[mac].logs[date]) { db[mac].logs[date] = { w:0, a:0, l:0, e1:0, e2:0, e3:0, e4:0, drop:0 }; }
-        
+        if (!db[mac])              db[mac] = { name:mac, tag:'', logs:{}, hourly:{} };
+        if (!db[mac].logs[date])   db[mac].logs[date]   = {w:0,a:0,l:0,e1:0,e2:0,e3:0,e4:0,drop:0,maint:0};
+        if (!db[mac].hourly[hour]) db[mac].hourly[hour] = {w:0,l:0,e:0};
         const log = db[mac].logs[date];
+        const hl  = db[mac].hourly[hour];
 
-        if (rid) {
-            if (!batchRoomData[rid]) { batchRoomData[rid] = { mac: mac, date: date, loses: 0, hasWin: false }; }
-        }
+        if (rid && !batchRoom[rid]) batchRoom[rid] = {mac, date, loses:0, hasWin:false};
 
-        if (type === 'WIN_TURN') {
-            log.w++;
-            if (rid) batchRoomData[rid].hasWin = true;
-        } else if (type === 'LOSE_TURN') {
-            log.l++;
-            if (rid) batchRoomData[rid].loses++;
-        } else if (type.includes('ERROR')) {
-            const t = type.toUpperCase();
-            if (t.includes('TIMEOUT')) log.e1++;
-            else if (t.includes('MOTOR') || t.includes('LIMIT')) log.e2++;
-            else if (t.includes('COMM') || t.includes('NET')) log.e3++;
-            else log.e4++;
+        switch (typ) {
+            case 'WIN_TURN':
+                log.w++; hl.w++;
+                if (rid) batchRoom[rid].hasWin = true;
+                break;
+            case 'LOSE_TURN':
+                log.l++; hl.l++;
+                if (rid) batchRoom[rid].loses++;
+                break;
+            case 'DISCONNECTED_BY_APPLICATION': log.drop++; break;
+            case 'ERROR_MACHINE_NO_RESPONSE':   log.e1++; hl.e++; break;
+            case 'ERROR_MACHINE_REPORT':        log.e2++; hl.e++; break;
+            case 'ERROR':                       log.e3++; hl.e++; break;
+            case 'MAINTAIN_ON':                 log.maint++; break;
+            default:
+                if (typ.startsWith('ERROR')) { log.e4++; hl.e++; }
         }
     }
 }
 
-function render() {
-    const list = document.getElementById('machineList');
-    list.innerHTML = '';
-    const sortOrder = document.getElementById('sortOrder').value;
-    const startDate = document.getElementById('startDate').value;
-    const endDate = document.getElementById('endDate').value;
-    const tagSelect = document.getElementById('tagFilter');
-    const tagFilter = tagSelect ? tagSelect.value : "";
+// ============================================================
+// フィルター
+// ============================================================
+function applyFilters() {
+    renderAll(
+        document.getElementById('startDate').value,
+        document.getElementById('endDate').value,
+        document.getElementById('tagFilter').value
+    );
+}
+function clearDateFilter() {
+    document.getElementById('startDate').value = '';
+    document.getElementById('endDate').value   = '';
+    applyFilters();
+}
 
-    const allTags = new Set();
-    Object.values(db).forEach(m => { if (m.tag && m.tag.trim() !== '') allTags.add(m.tag.trim()); });
-    
-    if (tagSelect) {
-        tagSelect.innerHTML = '<option value="">すべて</option>';
-        allTags.forEach(tag => {
-            const opt = document.createElement('option');
-            opt.value = tag; opt.textContent = tag;
-            if (tag === tagFilter) opt.selected = true;
-            tagSelect.appendChild(opt);
-        });
+// ============================================================
+// メイン描画
+// ============================================================
+function renderAll(fs='', fe='', ftag='') {
+    if (!Object.keys(db).length) { renderEmpty(); return; }
+
+    const s   = fs   || document.getElementById('startDate').value;
+    const e   = fe   || document.getElementById('endDate').value;
+    const tag = ftag !== undefined ? ftag : document.getElementById('tagFilter').value;
+
+    // タグ選択肢
+    const tagSel   = document.getElementById('tagFilter');
+    const savedTag = tagSel.value;
+    const allTags  = new Set(Object.values(db).map(m=>m.tag).filter(Boolean));
+    tagSel.innerHTML = '<option value="">すべて</option>';
+    allTags.forEach(t => {
+        const o = document.createElement('option');
+        o.value = t; o.textContent = t;
+        if (t === savedTag) o.selected = true;
+        tagSel.appendChild(o);
+    });
+
+    // 日付範囲の自動設定（未設定時のみ）
+    const allDates = Object.values(db).flatMap(m=>Object.keys(m.logs)).sort();
+    if (allDates.length) {
+        if (!document.getElementById('startDate').value)
+            document.getElementById('startDate').value = allDates.find(d=>d>=RELEASE_DATE) || allDates[0];
+        if (!document.getElementById('endDate').value)
+            document.getElementById('endDate').value = allDates[allDates.length-1];
     }
 
-    const sortedMacs = Object.keys(db).sort((a, b) => {
-        if (sortOrder === 'name') {
-            const nameA = db[a].name || a;
-            const nameB = db[b].name || b;
-            return nameA.localeCompare(nameB, 'ja', { numeric: true });
-        } else { return a.localeCompare(b); }
-    });
+    // ブース集計
+    const boothStats  = {};
+    const dailyPlays  = {};
+    const hourly24    = new Array(24).fill(0);
+    const boothHourly = {};   // mac -> [24]
 
-    const filteredMacs = sortedMacs.filter(mac => {
-        if (tagFilter !== "" && db[mac].tag !== tagFilter) return false;
-        return true;
-    });
-
-    filteredMacs.forEach(mac => {
+    for (const mac of Object.keys(db)) {
         const m = db[mac];
-        const cid = `area-${mac.replace(/:/g, '')}`;
-        const filteredDates = Object.keys(m.logs).filter(d => {
-            if (startDate && d < startDate) return false;
-            if (endDate && d > endDate) return false;
-            return true;
-        }).sort().reverse();
+        if (tag && m.tag !== tag) continue;
 
-        if (filteredDates.length === 0) return;
-        let sw=0, sa=0, sl=0, sd=0;
-        
-        filteredDates.forEach(d => { 
-            const l = m.logs[d];
-            sw += (l.w || 0); sa += (l.a || 0); sl += (l.l || 0); sd += (l.drop || 0); 
-        });
-        
-        const totalPlays = sw + sl; const totalAcq = sw + sa;
-        const card = document.createElement('div');
-        card.className = 'machine-card';
-        card.innerHTML = `
-            <div class="machine-header" onclick="this.parentElement.classList.toggle('is-open')">
-                <div class="name-section">
-                    <input type="text" class="rename-input" value="${m.name}" onclick="event.stopPropagation()" onchange="rename('${mac}', this.value)" placeholder="台の名前を入力">
-                    <input type="text" class="rename-input tag-input" value="${m.tag || ''}" onclick="event.stopPropagation()" onchange="updateTag('${mac}', this.value)" placeholder="タグ追加">
-                    <span class="mac-label">${mac}</span>
+        let w=0,a=0,l=0,e1=0,e2=0,e3=0,e4=0,drop=0;
+        const fd = Object.keys(m.logs).filter(d => (!s||d>=s) && (!e||d<=e));
+        for (const d of fd) {
+            const lg = m.logs[d];
+            w+=lg.w||0; a+=lg.a||0; l+=lg.l||0;
+            e1+=lg.e1||0; e2+=lg.e2||0; e3+=lg.e3||0; e4+=lg.e4||0;
+            drop+=lg.drop||0;
+            dailyPlays[d] = (dailyPlays[d]||0) + (lg.w||0) + (lg.l||0);
+        }
+
+        boothHourly[mac] = new Array(24).fill(0);
+        for (const h of Object.keys(m.hourly)) {
+            const hr = parseInt(h);
+            const hl = m.hourly[h];
+            const hp = (hl.w||0) + (hl.l||0);
+            boothHourly[mac][hr] += hp;
+            hourly24[hr] += hp;
+        }
+
+        const plays   = w + l;
+        const acq     = w + a;
+        const revenue = plays * getFee(mac);
+        const errors  = e1+e2+e3+e4;
+        const avg     = acq > 0 ? plays/acq : 0;
+        boothStats[mac] = {mac, name:m.name||mac, tag:m.tag||'', w,a,l,e1,e2,e3,e4,drop,plays,acq,revenue,errors,avg};
+    }
+
+    // ★ グローバルに保持（ソート再描画用）
+    lastStats = boothStats;
+
+    // KPI
+    const bl   = Object.values(boothStats);
+    const totP = bl.reduce((s,b)=>s+b.plays,0);
+    const totR = bl.reduce((s,b)=>s+b.revenue,0);
+    const totW = bl.reduce((s,b)=>s+b.w,0);
+    const totA = bl.reduce((s,b)=>s+b.acq,0);
+    const nB   = bl.length, nAct = bl.filter(b=>b.plays>0).length;
+    document.getElementById('kpi-plays').textContent      = totP.toLocaleString();
+    document.getElementById('kpi-plays-sub').textContent  = `Win: ${totW.toLocaleString()} / Lose: ${(totP-totW).toLocaleString()}`;
+    document.getElementById('kpi-revenue').textContent    = totR.toLocaleString() + ' coins';
+    document.getElementById('kpi-revenue-sub').textContent= nB ? `平均 ${Math.floor(totR/nB).toLocaleString()} coins/ブース` : '';
+    document.getElementById('kpi-avg-turns').textContent  = totA>0 ? (totP/totA).toFixed(2)+' 手' : '-';
+    document.getElementById('kpi-booths').textContent     = nB + ' ブース';
+    document.getElementById('kpi-booths-sub').textContent = `稼働中: ${nAct} ブース`;
+
+    // グラフ・UI
+    renderTrendChart(dailyPlays);
+    renderBoothChart(boothStats);
+    renderRevTrendChart(dailyPlays);
+    renderResultChart(boothStats);
+    renderErrorChart(boothStats);
+    renderHeatmap(boothStats, boothHourly);
+    renderHourlyChart(hourly24);
+    renderDowChart(dailyPlays);
+    renderTable();  // ★ lastStats を使う
+}
+
+// ============================================================
+// チャート
+// ============================================================
+function renderTrendChart(dp) {
+    const labels = Object.keys(dp).sort();
+    if (!labels.length) return;
+    mkChart('trendChart','line',
+        {labels, datasets:[{data:labels.map(l=>dp[l]),
+            borderColor:'#38bdf8',backgroundColor:'rgba(56,189,248,0.1)',fill:true,tension:0.3,pointRadius:2}]},
+        {plugins:{legend:{display:false}},
+         scales:{y:{grid:{color:GC},ticks:{color:TC}},x:{grid:{display:false},ticks:{color:TC,maxTicksLimit:10}}}}
+    );
+}
+
+function renderBoothChart(bs) {
+    const sorted = Object.values(bs).sort((a,b)=>b.plays-a.plays).slice(0,15);
+    if (!sorted.length) return;
+    mkChart('boothChart','bar',
+        {labels:sorted.map(b=>b.name),datasets:[
+            {label:'Win',   data:sorted.map(b=>b.w),backgroundColor:'#10b981',stack:'s',borderRadius:2},
+            {label:'Assist',data:sorted.map(b=>b.a),backgroundColor:'#f59e0b',stack:'s',borderRadius:2},
+            {label:'Lose',  data:sorted.map(b=>b.l),backgroundColor:'#334155',stack:'s',borderRadius:2},
+        ]},
+        {plugins:{legend:{labels:{color:'#94a3b8',font:{size:10}}}},
+         scales:{y:{stacked:true,grid:{color:GC},ticks:{color:TC}},x:{stacked:true,grid:{display:false},ticks:{color:TC,font:{size:9}}}}}
+    );
+}
+
+function setRevTab(mode, btn) {
+    revTabMode = mode;
+    // タブボタンの active を切り替え
+    btn.closest('.flex').querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    // dailyPlays を再構築して再描画
+    const dp = {}, sd = document.getElementById('startDate').value, ed = document.getElementById('endDate').value;
+    for (const mac of Object.keys(db)) {
+        for (const d of Object.keys(db[mac].logs)) {
+            if (sd && d<sd) continue; if (ed && d>ed) continue;
+            const lg = db[mac].logs[d];
+            dp[d] = (dp[d]||0) + (lg.w||0) + (lg.l||0);
+        }
+    }
+    renderRevTrendChart(dp);
+}
+
+function renderRevTrendChart(dp) {
+    const fee    = getDefaultFee();
+    const bucket = {};
+    for (const d of Object.keys(dp).sort()) {
+        let key = d;
+        if (revTabMode === 'weekly') {
+            const dt = new Date(d), dow = dt.getDay();
+            const m  = new Date(dt); m.setDate(dt.getDate() - (dow===0?6:dow-1));
+            key = m.toISOString().slice(0,10);
+        }
+        bucket[key] = (bucket[key]||0) + dp[d] * fee;
+    }
+    const labels = Object.keys(bucket).sort();
+    if (!labels.length) return;
+    mkChart('revTrendChart','bar',
+        {labels, datasets:[{data:labels.map(l=>bucket[l]),
+            backgroundColor:'rgba(16,185,129,0.6)',borderColor:'#10b981',borderWidth:1,borderRadius:2}]},
+        {plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>`${c.parsed.y.toLocaleString()} coins`}}},
+         scales:{y:{grid:{color:GC},ticks:{color:TC}},x:{grid:{display:false},ticks:{color:TC,maxTicksLimit:10}}}}
+    );
+}
+
+function renderResultChart(bs) {
+    const bl = Object.values(bs);
+    const w=bl.reduce((s,b)=>s+b.w,0), a=bl.reduce((s,b)=>s+b.a,0), l=bl.reduce((s,b)=>s+b.l,0);
+    const tot = w+a+l; if (!tot) return;
+    mkChart('resultChart','doughnut',
+        {labels:['通常Win','アシスト','Lose'],
+         datasets:[{data:[w,a,l],backgroundColor:['#10b981','#f59e0b','#475569'],borderColor:'#1e293b',borderWidth:2,hoverOffset:4}]},
+        {cutout:'60%',plugins:{legend:{display:false},
+            tooltip:{callbacks:{label:c=>`${c.label}: ${c.parsed.toLocaleString()} (${((c.parsed/tot)*100).toFixed(1)}%)`}}}}
+    );
+    const items = [{label:'通常Win',val:w,col:'#10b981'},{label:'アシスト',val:a,col:'#f59e0b'},{label:'Lose',val:l,col:'#94a3b8'}];
+    document.getElementById('resultLegend').innerHTML = items.map(it=>`
+        <div class="flex items-center gap-2">
+            <span class="w-3 h-3 rounded-full flex-shrink-0" style="background:${it.col}"></span>
+            <span class="text-slate-300">${it.label}</span>
+            <span class="ml-auto font-bold" style="color:${it.col}">${it.val.toLocaleString()}</span>
+            <span class="text-slate-500 w-10 text-right">${((it.val/tot)*100).toFixed(1)}%</span>
+        </div>`).join('');
+}
+
+function renderErrorChart(bs) {
+    const bl = Object.values(bs);
+    const vals  = [bl.reduce((s,b)=>s+b.e1,0),bl.reduce((s,b)=>s+b.e2,0),bl.reduce((s,b)=>s+b.e3,0),bl.reduce((s,b)=>s+b.e4,0)];
+    const tot   = vals.reduce((s,v)=>s+v,0);
+    const labels= ['Err:NR','Err:MR','Err','Err:他'];
+    const tips  = ['ERROR_MACHINE_NO_RESPONSE','ERROR_MACHINE_REPORT','ERROR','その他ERROR系'];
+    const colors= ['#ef4444','#f97316','#eab308','#94a3b8'];
+    const lgEl  = document.getElementById('errorLegend');
+    if (!tot) { lgEl.innerHTML='<p class="text-slate-500 text-xs">エラーなし</p>'; return; }
+    mkChart('errorChart','doughnut',
+        {labels,datasets:[{data:vals,backgroundColor:colors,borderColor:'#1e293b',borderWidth:2,hoverOffset:4}]},
+        {cutout:'58%',plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>`${c.label}: ${c.parsed.toLocaleString()}`}}}}
+    );
+    lgEl.innerHTML = labels.map((l,i)=>`
+        <div class="flex items-center gap-2" title="${tips[i]}">
+            <span class="w-3 h-3 rounded-full flex-shrink-0" style="background:${colors[i]}"></span>
+            <span class="text-slate-300">${l}</span>
+            <span class="ml-auto font-bold" style="color:${colors[i]}">${vals[i].toLocaleString()}</span>
+            <span class="text-slate-500 w-10 text-right">${tot?((vals[i]/tot)*100).toFixed(0):0}%</span>
+        </div>`).join('');
+}
+
+function setHeatTab(mode, btn) {
+    heatMode = mode;
+    btn.closest('.flex').querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    // boothHourly を再構築
+    const bh = {};
+    for (const mac of Object.keys(db)) {
+        if (!lastStats[mac]) continue;
+        bh[mac] = new Array(24).fill(0);
+        for (const h of Object.keys(db[mac].hourly)) {
+            const hl = db[mac].hourly[h];
+            bh[mac][parseInt(h)] += (hl.w||0)+(hl.l||0);
+        }
+    }
+    renderHeatmap(lastStats, bh);
+}
+
+function renderHeatmap(bs, bh) {
+    const el   = document.getElementById('heatmapContainer');
+    const macs = Object.keys(bs).filter(mac => bh[mac]);
+    if (!macs.length) { el.innerHTML='<p class="text-center text-slate-500 text-sm py-8">CSVを読み込むと表示されます</p>'; return; }
+
+    let maxVal = 1;
+    for (const mac of macs) {
+        for (let h=0;h<24;h++) {
+            const v = heatMode==='revenue' ? bh[mac][h]*getFee(mac) : bh[mac][h];
+            if (v>maxVal) maxVal=v;
+        }
+    }
+
+    let html = `<div class="heatmap-grid" style="grid-template-columns:90px repeat(24,minmax(0,1fr));gap:2px;min-width:620px">`;
+    html += '<div></div>';
+    for (let h=0;h<24;h++) html+=`<div class="heatmap-hlabel">${h}時</div>`;
+    for (const mac of macs) {
+        const name = bs[mac]?.name || mac;
+        html += `<div class="heatmap-label" title="${esc(name)}">${esc(name)}</div>`;
+        for (let h=0;h<24;h++) {
+            const v     = heatMode==='revenue' ? bh[mac][h]*getFee(mac) : bh[mac][h];
+            const ratio = v/maxVal;
+            const r     = Math.floor(56+ratio*120), g=Math.floor(189+ratio*20);
+            const bg    = v===0 ? '#1e293b' : `rgba(${r},${g},248,${Math.max(0.08,ratio).toFixed(2)})`;
+            const tip   = heatMode==='revenue'
+                ? `${name} ${h}時: ${Math.floor(v).toLocaleString()} coins`
+                : `${name} ${h}時: ${v} プレイ`;
+            html+=`<div class="heatmap-cell" style="background:${bg}" title="${esc(tip)}"></div>`;
+        }
+    }
+    html+='</div>';
+    el.innerHTML=html;
+}
+
+function renderHourlyChart(hp) {
+    if (!hp.some(v=>v>0)) return;
+    const maxH = hp.indexOf(Math.max(...hp));
+    mkChart('hourlyChart','bar',
+        {labels:Array.from({length:24},(_,i)=>`${i}時`),
+         datasets:[{data:hp,backgroundColor:hp.map((_,i)=>i===maxH?'rgba(56,189,248,0.9)':'rgba(56,189,248,0.45)'),borderRadius:3}]},
+        {plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>`${c.parsed.y.toLocaleString()} プレイ`}}},
+         scales:{y:{grid:{color:GC},ticks:{color:TC}},x:{grid:{display:false},ticks:{color:TC,font:{size:9}}}}}
+    );
+}
+
+function renderDowChart(dp) {
+    const dow  = new Array(7).fill(0);
+    const dowN = ['日','月','火','水','木','金','土'];
+    for (const d of Object.keys(dp)) dow[new Date(d).getDay()]+=dp[d];
+    if (!dow.some(v=>v>0)) return;
+    const maxD = dow.indexOf(Math.max(...dow));
+    mkChart('dowChart','bar',
+        {labels:dowN,datasets:[{data:dow,backgroundColor:dow.map((_,i)=>i===maxD?'rgba(168,85,247,0.9)':'rgba(168,85,247,0.45)'),borderRadius:3}]},
+        {plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>`${c.parsed.y.toLocaleString()} プレイ`}}},
+         scales:{y:{grid:{color:GC},ticks:{color:TC}},x:{grid:{display:false},ticks:{color:TC}}}}
+    );
+}
+
+// ============================================================
+// アコーディオン ソート（★ lastStats を使う）
+// ============================================================
+function setBoothSort(col) {
+    sortState.dir = sortState.col===col ? (sortState.dir==='desc'?'asc':'desc') : (col==='name'?'asc':'desc');
+    sortState.col = col;
+    document.querySelectorAll('.sort-btn').forEach(b => b.classList.toggle('active', b.dataset.col===col));
+    const lbl = document.getElementById('sortDirLabel');
+    if (lbl) lbl.textContent = col==='name'
+        ? (sortState.dir==='asc'?'↑ A→Z':'↓ Z→A')
+        : (sortState.dir==='desc'?'↓ 多い順':'↑ 少ない順');
+    renderTable();  // ★ renderAll を呼ばずに再描画だけ
+}
+
+function toggleBooth(mac) {
+    const sid     = mac.replace(/[^a-zA-Z0-9]/g,'_');
+    const body    = document.getElementById('bb_'+sid);
+    const chevron = document.getElementById('bc_'+sid);
+    if (!body) return;
+    const opening = !body.classList.contains('open');
+    body.classList.toggle('open', opening);
+    if (chevron) chevron.classList.toggle('open', opening);
+    if (opening) openBooths.add(mac); else openBooths.delete(mac);
+}
+
+function toggleAllBooths(open) {
+    document.querySelectorAll('.booth-body').forEach(el=>{
+        el.classList.toggle('open', open);
+        if (open) openBooths.add(el.dataset.mac); else openBooths.delete(el.dataset.mac);
+    });
+    document.querySelectorAll('.chevron').forEach(el=>el.classList.toggle('open',open));
+}
+
+function renderTable() {
+    const acc = document.getElementById('boothAccordion');
+    if (!acc) return;
+    const { col, dir } = sortState;
+    const entries = Object.values(lastStats).slice().sort((a,b) => {
+        const va = a[col] ?? 0, vb = b[col] ?? 0;
+        if (typeof va==='string') return dir==='asc' ? va.localeCompare(vb,'ja',{numeric:true}) : vb.localeCompare(va,'ja',{numeric:true});
+        return dir==='asc' ? va-vb : vb-va;
+    });
+
+    document.getElementById('listCount').textContent = `${entries.length} ブース`;
+    const sd = document.getElementById('startDate').value;
+    const ed = document.getElementById('endDate').value;
+
+    acc.innerHTML = entries.map(b => {
+        const sid     = b.mac.replace(/[^a-zA-Z0-9]/g,'_');
+        const isOpen  = openBooths.has(b.mac);
+        const avgStr  = b.acq>0 ? (b.plays/b.acq).toFixed(2)+' 手' : '-';
+        const totErr  = b.e1+b.e2+b.e3+b.e4;
+
+        const m      = db[b.mac];
+        const fdates = m ? Object.keys(m.logs).filter(d=>(!sd||d>=sd)&&(!ed||d<=ed)).sort().reverse() : [];
+
+        const dateRows = fdates.map(d => {
+            const lg=m.logs[d], w=lg.w||0, a=lg.a||0, l=lg.l||0;
+            const plays=w+l, acq=w+a;
+            const avgD = acq>0 ? (plays/acq).toFixed(2)+' 手' : '-';
+            return `<tr class="hover:bg-slate-800/50 text-xs border-b border-slate-700/30">
+                <td class="px-3 py-2 text-slate-400 whitespace-nowrap">${d}</td>
+                <td class="px-3 py-2 text-emerald-400 font-bold text-center">${w}</td>
+                <td class="px-3 py-2 text-amber-400 text-center">${a}</td>
+                <td class="px-3 py-2 text-slate-300 text-center">${l}</td>
+                <td class="px-3 py-2 text-sky-300 font-bold text-center">${plays}</td>
+                <td class="px-3 py-2 text-slate-400 text-center">${lg.drop||0}</td>
+                <td class="px-3 py-2 text-red-400 text-center">${lg.e1||0}</td>
+                <td class="px-3 py-2 text-red-400 text-center">${lg.e2||0}</td>
+                <td class="px-3 py-2 text-red-400 text-center">${lg.e3||0}</td>
+                <td class="px-3 py-2 text-red-400 text-center">${lg.e4||0}</td>
+                <td class="px-3 py-2 text-yellow-300 font-bold text-center">${avgD}</td>
+            </tr>`;
+        }).join('') || '<tr><td colspan="11" class="text-center text-slate-600 py-4 text-xs">データなし</td></tr>';
+
+        return `<div class="card overflow-hidden">
+            <div class="flex items-center gap-3 px-4 py-3 cursor-pointer select-none hover:bg-slate-700/30"
+                 onclick="toggleBooth('${esc(b.mac)}')">
+                <span id="bc_${sid}" class="chevron text-slate-500 flex-shrink-0 ${isOpen?'open':''}">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                    </svg>
+                </span>
+                <div class="flex-1 min-w-0 flex items-center gap-2">
+                    <input class="bg-transparent border-b border-transparent hover:border-slate-500 focus:border-sky-400 outline-none text-slate-100 text-sm font-bold w-36 truncate"
+                           value="${esc(b.name)}"
+                           onchange="renameBooth('${esc(b.mac)}',this.value)"
+                           onclick="event.stopPropagation()">
+                    <input class="bg-transparent border-b border-transparent hover:border-slate-500 focus:border-amber-400 outline-none text-amber-400 text-xs w-16"
+                           value="${esc(b.tag)}" placeholder="タグ"
+                           onchange="updateTag('${esc(b.mac)}',this.value)"
+                           onclick="event.stopPropagation()">
+                    <span class="text-slate-600 font-mono text-xs hidden xl:block">${esc(b.mac)}</span>
                 </div>
-                <div class="quick-stats">
-                    <div class="q-item"><span class="q-label">自力獲得</span><span class="q-val col-win">${sw}</span></div>
-                    <div class="q-item"><span class="q-label">アシスト</span><span class="q-val col-ast">${sa}</span></div>
-                    <div class="q-item"><span class="q-label">平均手数</span><span class="q-val col-avg">${totalAcq > 0 ? (totalPlays/totalAcq).toFixed(1) : '-'}</span></div>
+                <div class="flex items-center gap-4 flex-shrink-0 text-xs">
+                    <div class="text-center hidden sm:block"><div class="text-slate-500">総プレイ</div><div class="text-sky-300 font-bold">${b.plays.toLocaleString()}</div></div>
+                    <div class="text-center hidden sm:block"><div class="text-slate-500">Win</div><div class="text-emerald-400 font-bold">${b.w.toLocaleString()}</div></div>
+                    <div class="text-center hidden sm:block"><div class="text-slate-500">Assist</div><div class="text-amber-400 font-bold">${b.a.toLocaleString()}</div></div>
+                    <div class="text-center hidden md:block"><div class="text-slate-500">平均獲得</div><div class="text-yellow-300 font-bold">${avgStr}</div></div>
+                    <div class="text-center hidden md:block"><div class="text-slate-500">推定売上</div><div class="text-emerald-300 font-bold">${b.revenue.toLocaleString()}</div></div>
+                    <div class="text-center hidden lg:block"><div class="text-slate-500">エラー</div><div class="${totErr>0?'text-red-400':'text-slate-600'} font-bold">${totErr}</div></div>
+                    <button onclick="event.stopPropagation();deleteBooth('${esc(b.mac)}')"
+                        class="no-print text-red-500 hover:text-red-300 text-xs font-bold px-2 py-1 rounded border border-red-800/50 hover:bg-red-900/30 ml-1">削除</button>
                 </div>
             </div>
-            <div class="machine-content">
-                <div class="table-controls">
-                    <button class="btn btn-outline" onclick="exportPDF('${cid}', '${m.name}')">📄 PDFレポート出力</button>
-                </div>
-                <div id="${cid}">
-                    <h2 class="pdf-only">${m.name} 稼働状況レポート</h2>
-                    <table>
-                        <thead>
+            <div id="bb_${sid}" class="booth-body${isOpen?' open':''}" data-mac="${esc(b.mac)}">
+                <div class="overflow-x-auto border-t border-slate-700/50">
+                    <table class="w-full text-left" style="min-width:680px">
+                        <thead class="bg-slate-900/60 text-xs text-slate-400">
                             <tr>
-                                <th>日付</th>
-                                <th class="col-win">通常Win</th>
-                                <th class="col-ast">アシスト</th>
-                                <th>Lose手番</th>
-                                <th class="col-total">総プレイ手数</th>
-                                <th>離脱数</th>
-                                <th title="Timeout">Err:T</th>
-                                <th title="Motor">Err:M</th>
-                                <th title="Comm">Err:C</th>
-                                <th title="Other">Err:O</th>
-                                <th>平均獲得手数</th>
+                                <th class="px-3 py-2 font-bold">日付</th>
+                                <th class="px-3 py-2 font-bold text-emerald-400 text-center">通常Win</th>
+                                <th class="px-3 py-2 font-bold text-amber-400 text-center">アシスト</th>
+                                <th class="px-3 py-2 font-bold text-center">Lose手番</th>
+                                <th class="px-3 py-2 font-bold text-sky-400 text-center">総プレイ手数</th>
+                                <th class="px-3 py-2 font-bold text-center">離脱数</th>
+                                <th class="px-3 py-2 font-bold text-red-400 text-center" title="ERROR_MACHINE_NO_RESPONSE">Err:NR</th>
+                                <th class="px-3 py-2 font-bold text-red-400 text-center" title="ERROR_MACHINE_REPORT">Err:MR</th>
+                                <th class="px-3 py-2 font-bold text-red-400 text-center" title="ERROR">Err</th>
+                                <th class="px-3 py-2 font-bold text-red-400 text-center" title="その他ERRORイベント">Err:他</th>
+                                <th class="px-3 py-2 font-bold text-yellow-300 text-center">平均獲得手数</th>
                             </tr>
                         </thead>
-                        <tbody>
-                            ${filteredDates.map(d => {
-                                const l = m.logs[d];
-                                const w = l.w || 0; const a = l.a || 0; const ls = l.l || 0;
-                                const plays = w + ls; const acq = w + a;
-                                return `<tr>
-                                    <td>${d}</td>
-                                    <td class="col-win">${w}</td>
-                                    <td class="col-ast">${a}</td>
-                                    <td>${ls}</td>
-                                    <td class="col-total">${plays}</td>
-                                    <td style="color:#666">${l.drop || 0}</td>
-                                    <td class="col-err">${l.e1 || 0}</td>
-                                    <td class="col-err">${l.e2 || 0}</td>
-                                    <td class="col-err">${l.e3 || 0}</td>
-                                    <td class="col-err">${l.e4 || 0}</td>
-                                    <td class="col-avg">${acq > 0 ? (plays/acq).toFixed(2) : '-'}</td>
-                                </tr>`;
-                            }).join('')}
-                        </tbody>
+                        <tbody>${dateRows}</tbody>
                     </table>
                 </div>
             </div>
-        `;
-        list.appendChild(card);
-    });
+        </div>`;
+    }).join('');
 }
 
-function clearDateFilter() { document.getElementById('startDate').value = ''; document.getElementById('endDate').value = ''; render(); }
-
-// ★ 名前の変更・タグの追加時にも自動でDriveへ同期する
-function rename(mac, val) { db[mac].name = val; save(true); }
-function updateTag(mac, val) { db[mac].tag = val; save(true); }
-
-// ★ save関数を拡張。autoSyncがtrueの場合はそのまま自動アップロードを裏で実行
-function save(autoSync = false) { 
-    localStorage.setItem('bh_v4_db', JSON.stringify(db)); 
-    render(); 
-    if (autoSync) { saveToDrive(true); }
+// ============================================================
+// ブース操作
+// ============================================================
+function renameBooth(mac, val) { if(db[mac]){db[mac].name=val; persistAndRender(true);} }
+function updateTag(mac, val)   { if(db[mac]){db[mac].tag=val;  persistAndRender(true);} }
+function deleteBooth(mac) {
+    if (!confirm(`「${db[mac]?.name||mac}」を削除しますか？`)) return;
+    delete db[mac]; openBooths.delete(mac); persistAndRender(true);
 }
 
-function exportJSON() {
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(new Blob([JSON.stringify(db)], {type: 'application/json'}));
-    a.download = `BH_Backup_${new Date().toISOString().split('T')[0]}.json`;
+// ============================================================
+// プレイ料金
+// ============================================================
+function getDefaultFee() { return Math.max(0, parseInt(document.getElementById('defaultFee')?.value)||100); }
+function getFee(mac)     { return feeSettings[mac]!=null ? feeSettings[mac] : getDefaultFee(); }
+
+function toggleFeePanel() {
+    const el = document.getElementById('feePanel');
+    el.classList.toggle('hidden');
+    if (!el.classList.contains('hidden')) renderBoothFeeList();
+}
+function renderBoothFeeList() {
+    const c = document.getElementById('boothFeeList');
+    const macs = Object.keys(db);
+    if (!macs.length) { c.innerHTML='<p class="text-slate-500 text-xs italic">CSVを読み込むとブース一覧が表示されます</p>'; return; }
+    c.innerHTML = macs.map(mac => {
+        const val = feeSettings[mac]!=null ? feeSettings[mac] : '';
+        return `<div class="flex items-center gap-2 bg-slate-900/50 p-2 rounded border border-slate-700">
+            <span class="text-slate-300 text-xs font-bold flex-1 truncate">${esc(db[mac].name||mac)}</span>
+            <input type="number" min="0" value="${val}" placeholder="${getDefaultFee()}" data-mac="${esc(mac)}"
+                class="w-24 bg-slate-700 border border-slate-600 text-amber-300 text-sm font-bold rounded px-2 py-1 outline-none focus:border-amber-400"
+                oninput="feeSettings[this.dataset.mac]=this.value!==''?parseInt(this.value)||0:null">
+            <span class="text-slate-500 text-xs">コイン</span>
+        </div>`;
+    }).join('');
+}
+function resetFees() { feeSettings={}; renderBoothFeeList(); }
+function applyFees() { toggleFeePanel(); renderAll(); }
+
+// ============================================================
+// 永続化
+// ============================================================
+function persistAndRender(autoSync=false) {
+    try { localStorage.setItem(DB_KEY, JSON.stringify(db)); } catch(_) {}
+    renderAll();
+    if (autoSync) uploadToDrive(true);
+}
+
+function renderEmpty() {
+    ['kpi-plays','kpi-revenue','kpi-avg-turns','kpi-booths'].forEach(id=>document.getElementById(id).textContent='-');
+    ['kpi-plays-sub','kpi-revenue-sub','kpi-booths-sub'].forEach(id=>document.getElementById(id).textContent='');
+    document.getElementById('boothAccordion').innerHTML='<p class="text-center text-slate-500 py-8">CSVを読み込んでください</p>';
+    document.getElementById('heatmapContainer').innerHTML='<p class="text-center text-slate-500 text-sm py-8">CSVを読み込むと表示されます</p>';
+}
+
+// ============================================================
+// エクスポート
+// ============================================================
+function exportCSV() {
+    const sd=document.getElementById('startDate').value, ed=document.getElementById('endDate').value;
+    const rows=[['ブース名','タグ','MACアドレス','総プレイ手数','通常Win','アシスト','Lose手番','離脱数','平均獲得手数','推定売上(coins)','Err:NR','Err:MR','Err','Err:他']];
+    for (const mac of Object.keys(db)) {
+        const m=db[mac]; let w=0,a=0,l=0,e1=0,e2=0,e3=0,e4=0,drop=0;
+        for (const d of Object.keys(m.logs)) {
+            if(sd&&d<sd)continue; if(ed&&d>ed)continue;
+            const lg=m.logs[d];
+            w+=lg.w||0;a+=lg.a||0;l+=lg.l||0;e1+=lg.e1||0;e2+=lg.e2||0;e3+=lg.e3||0;e4+=lg.e4||0;drop+=lg.drop||0;
+        }
+        const plays=w+l,acq=w+a;
+        rows.push([m.name,m.tag||'',mac,plays,w,a,l,drop,acq>0?(plays/acq).toFixed(2)+' 手':'-',plays*getFee(mac),e1,e2,e3,e4]);
+    }
+    const csv=rows.map(r=>r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
+    const a=document.createElement('a');
+    a.href=URL.createObjectURL(new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8'}));
+    a.download=`BoothAnalysis_${new Date().toISOString().slice(0,10)}.csv`;
     a.click();
 }
-
+function exportJSON() {
+    const a=document.createElement('a');
+    a.href=URL.createObjectURL(new Blob([JSON.stringify({db,feeSettings})],{type:'application/json'}));
+    a.download=`BoothBackup_${new Date().toISOString().slice(0,10)}.json`;
+    a.click();
+}
 function importJSON(input) {
-    const r = new FileReader();
-    r.onload = (e) => { db = JSON.parse(e.target.result); save(false); }; // ローカル読込時は自動同期しない
+    const r=new FileReader();
+    r.onload=ev=>{
+        try{const d=JSON.parse(ev.target.result);if(d.db)db=d.db;if(d.feeSettings)feeSettings=d.feeSettings;persistAndRender(false);}
+        catch(e){alert('JSONの読み込みに失敗しました: '+e.message);}
+    };
     r.readAsText(input.files[0]);
 }
-
-function clearData() { if(confirm('データを全消去しますか？')) { db = {}; localStorage.removeItem('bh_v4_db'); render(); } }
-function exportPDF(id, name) {
-    const el = document.getElementById(id);
-    const pdfOnly = el.querySelector('.pdf-only');
-    pdfOnly.style.display = 'block';
-    html2pdf().set({ margin: 10, filename: `Report_${name}.pdf`, jsPDF: { orientation: 'landscape' } })
-        .from(el).save().then(() => pdfOnly.style.display = 'none');
+function clearData() {
+    if(!confirm('全データを消去しますか？'))return;
+    db={};feeSettings={};openBooths.clear();lastStats={};
+    try{localStorage.removeItem(DB_KEY);}catch(_){}
+    renderEmpty();
 }
 
-// ==========================================
-// ★ Google Drive連携機能
-// ==========================================
+// ============================================================
+// UI ヘルパー
+// ============================================================
+function toggleSyncPanel() { document.getElementById('syncPanel').classList.toggle('hidden'); }
+function toggleManual()    { document.getElementById('manualModal').classList.toggle('hidden'); }
 
-// Driveへの保存 (isAuto = true の場合はアラートを出さない)
-async function saveToDrive(isAuto = false) {
-    if (!GAS_WEB_APP_URL || GAS_WEB_APP_URL.includes('ここにURLを入力')) {
-        if (!isAuto) alert("GASのURLが設定されていません。"); return;
-    }
-    const btn = document.getElementById('btn-drive');
-    const originalText = "☁️ Driveへ同期";
-    btn.textContent = isAuto ? "自動同期中..." : "同期中...";
-    btn.disabled = true;
-
-    try {
-        const response = await fetch(GAS_WEB_APP_URL, {
-            method: "POST", headers: { "Content-Type": "text/plain" }, body: JSON.stringify(db)
-        });
-        const result = await response.json();
-        if(result.status === "success") {
-            if(!isAuto) alert("Google Driveにデータを同期しました。");
-        } else {
-            if(!isAuto) alert("同期エラー: " + result.message);
-        }
-    } catch (err) {
-        if(!isAuto) alert("通信エラーが発生しました: " + err);
-    } finally {
-        btn.textContent = originalText; btn.disabled = false;
-    }
+// ============================================================
+// GAS 同期
+// ============================================================
+function getGasUrl() {
+    const url=document.getElementById('gasUrl').value.trim();
+    if(url)localStorage.setItem(GAS_URL_KEY,url);
+    if(!url){setSyncStatus('error','⚠️ GAS URLを入力してください。');return null;}
+    return url;
 }
-
-// Driveからの読み込み
-async function loadFromDrive() {
-    if (!GAS_WEB_APP_URL || GAS_WEB_APP_URL.includes('ここにURLを入力')) {
-        alert("GASのURLが設定されていません。"); return;
-    }
-    const btn = document.getElementById('btn-drive-load');
-    const originalText = "☁️ Driveから読込";
-    btn.textContent = "読込中..."; btn.disabled = true;
-
-    try {
-        const response = await fetch(GAS_WEB_APP_URL);
-        const data = await response.json();
-        
-        if (data && Object.keys(data).length > 0) {
-            db = data;
-            save(false); // 読み込み直後は再同期不要
-            alert("Google Driveからデータを読み込みました。");
-        } else {
-            alert("Drive上のデータが空か、読み込めませんでした。");
+function setSyncStatus(type,msg) {
+    const el=document.getElementById('syncStatusMsg'),dot=document.getElementById('syncDot');
+    el.className='rounded px-4 py-2.5 text-xs font-semibold '+(
+        type==='loading'?'bg-amber-900/40 border border-amber-700 text-amber-300':
+        type==='ok'     ?'bg-emerald-900/40 border border-emerald-700 text-emerald-300':
+                         'bg-red-900/40 border border-red-700 text-red-300');
+    el.innerHTML=msg; el.classList.remove('hidden');
+    dot.className='sync-dot '+(type==='loading'?'loading':type==='ok'?'ok':'error');
+}
+async function uploadToDrive(isAuto=false) {
+    const url=localStorage.getItem(GAS_URL_KEY)||'';
+    if(!url){if(!isAuto)setSyncStatus('error','GAS URLが設定されていません。');return;}
+    if(!isAuto)setSyncStatus('loading','⏳ Driveにアップロード中...');
+    try{
+        const res=await fetch(url,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify(db),redirect:'follow'});
+        const json=await res.json();
+        if(json.status==='error')throw new Error(json.message||'不明なエラー');
+        const now=new Date().toLocaleString('ja-JP');
+        document.getElementById('syncLastFetched').textContent='最終保存: '+now;
+        if(!isAuto)setSyncStatus('ok','☁ 保存完了 — '+now);
+    }catch(err){if(!isAuto)setSyncStatus('error','❌ 保存失敗: '+err.message);}
+}
+async function syncFromDrive() {
+    const url=getGasUrl();if(!url)return;
+    setSyncStatus('loading','⏳ Driveからデータを取得中...');
+    try{
+        const res=await fetch(url,{redirect:'follow'});
+        if(!res.ok)throw new Error('HTTP '+res.status);
+        const text=await res.text();
+        if(!text?.trim()){setSyncStatus('error','⚠️ 空のレスポンスです。');return;}
+        let json;
+        try{json=JSON.parse(text);}catch(e){throw new Error('JSONパースエラー: '+text.slice(0,60));}
+        if(!json||typeof json!=='object'||Array.isArray(json)){setSyncStatus('error','⚠️ 予期しないデータ形式です。');return;}
+        if(json.error)throw new Error(json.error);
+        if(!Object.keys(json).length){setSyncStatus('error','⚠️ Driveにまだデータがありません。');return;}
+        const loaded={};
+        for(const mac of Object.keys(json)){
+            const m=json[mac];
+            if(!m||typeof m!=='object')continue;
+            loaded[mac]={name:m.name||mac,tag:m.tag||'',logs:m.logs||{},hourly:m.hourly||{}};
         }
-    } catch (err) {
-        alert("読み込みエラーが発生しました。GAS側で「doGet」関数が正しく設定されているか確認してください。\n詳細: " + err);
-    } finally {
-        btn.textContent = originalText; btn.disabled = false;
-    }
+        if(!Object.keys(loaded).length){setSyncStatus('error','⚠️ 有効なブースデータがありません。');return;}
+        db=loaded; persistAndRender(false);
+        const now=new Date().toLocaleString('ja-JP');
+        document.getElementById('syncLastFetched').textContent='最終取得: '+now;
+        setSyncStatus('ok','✅ 同期完了（'+Object.keys(loaded).length+'ブース） — '+now);
+    }catch(err){setSyncStatus('error','❌ 取得失敗: '+err.message);}
+}
+function onAutoSyncChange() {
+    const checked=document.getElementById('autoSync').checked;
+    setAutoToggleUI(checked);
+    localStorage.setItem(GAS_AUTO_KEY,checked?'1':'0');
+}
+function setAutoToggleUI(v) {
+    document.getElementById('autoSync').checked=v;
+    document.getElementById('toggleBg').style.background=v?'#4f46e5':'';
+    document.getElementById('toggleDot').style.transform=v?'translateX(20px)':'';
 }
 </script>
-
 </body>
 </html>
