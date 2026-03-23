@@ -3,271 +3,441 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Game Intelligence Dashboard | Pro V5</title>
-    <link rel="icon" href="favicon.ico">
+    <title>Game Intelligence Dashboard</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/dayjs@1.11.7/dayjs.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/dayjs@1.11.7/plugin/minMax.js"></script>
-    <script>dayjs.extend(window.dayjs_plugin_minMax);</script>
+    <script src="https://cdn.jsdelivr.net/npm/dayjs@1.11.7/plugin/isoWeek.js"></script>
+    <script>dayjs.extend(window.dayjs_plugin_minMax); dayjs.extend(window.dayjs_plugin_isoWeek);</script>
     <style>
+        /* ===== ベース ===== */
         body { background-color: #0f172a; color: #e2e8f0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
         .card { background-color: #1e293b; border: 1px solid #334155; border-radius: 12px; }
-        .accent-blue { color: #38bdf8; }
-        .accent-purple { color: #c084fc; }
-        .input-field {
-            background-color: #334155;
-            border: 1px solid #475569;
-            color: #ffffff;
-            border-radius: 6px;
-            padding: 8px 12px;
-            width: 100%;
-            outline: none;
-        }
+        .section-title { font-size: 0.7rem; font-weight: 700; letter-spacing: 0.12em; color: #64748b; text-transform: uppercase; margin-bottom: 1rem; }
+        .input-field { background-color: #334155; border: 1px solid #475569; color: #fff; border-radius: 6px; padding: 8px 12px; width: 100%; outline: none; }
         .input-field:focus { border-color: #38bdf8; box-shadow: 0 0 0 1px #38bdf8; }
         ::-webkit-calendar-picker-indicator { filter: invert(1); cursor: pointer; }
 
-        /* ソートアイコン */
-        th.sortable { cursor: pointer; user-select: none; }
-        th.sortable:hover { color: #38bdf8; }
-        th.sortable .sort-icon { display: inline-block; margin-left: 4px; opacity: 0.4; font-size: 0.7em; }
-        th.sortable.asc .sort-icon::after { content: '▲'; opacity: 1; }
-        th.sortable.desc .sort-icon::after { content: '▼'; opacity: 1; }
-        th.sortable:not(.asc):not(.desc) .sort-icon::after { content: '⇅'; }
-
-        /* セグメントバッジ */
-        .badge-whale  { background: rgba(234,179,8,0.15);  color: #fbbf24; border: 1px solid rgba(234,179,8,0.4);  padding: 1px 8px; border-radius: 4px; font-size: 0.7rem; font-weight:700; }
-        .badge-dolphin{ background: rgba(99,102,241,0.15); color: #a5b4fc; border: 1px solid rgba(99,102,241,0.4); padding: 1px 8px; border-radius: 4px; font-size: 0.7rem; font-weight:700; }
-        .badge-minnow { background: rgba(16,185,129,0.15); color: #6ee7b7; border: 1px solid rgba(16,185,129,0.4); padding: 1px 8px; border-radius: 4px; font-size: 0.7rem; font-weight:700; }
-
-        /* タブ */
-        .tab-btn { padding: 6px 16px; border-radius: 6px; font-size: 0.8rem; font-weight: 700; cursor: pointer; border: 1px solid #334155; color: #94a3b8; background: transparent; transition: all 0.15s; }
+        /* ===== タブ ===== */
+        .tab-btn { padding: 5px 14px; border-radius: 6px; font-size: 0.75rem; font-weight: 700; cursor: pointer; border: 1px solid #334155; color: #94a3b8; background: transparent; transition: all 0.15s; }
         .tab-btn.active { background: #0f172a; color: #38bdf8; border-color: #38bdf8; }
         .tab-btn:hover:not(.active) { color: #e2e8f0; border-color: #475569; }
+
+        /* ===== ソート ===== */
+        th.sortable { cursor: pointer; user-select: none; }
+        th.sortable:hover { color: #38bdf8; }
+        th.sortable .si { margin-left: 4px; opacity: 0.35; font-size: 0.65em; }
+        th.sortable.asc  .si::after { content: '▲'; opacity: 1; }
+        th.sortable.desc .si::after { content: '▼'; opacity: 1; }
+        th.sortable:not(.asc):not(.desc) .si::after { content: '⇅'; }
+
+        /* ===== バッジ ===== */
+        .badge-whale   { background:rgba(234,179,8,0.15);  color:#fbbf24; border:1px solid rgba(234,179,8,0.4);  padding:1px 7px; border-radius:4px; font-size:0.68rem; font-weight:700; }
+        .badge-dolphin { background:rgba(99,102,241,0.15); color:#a5b4fc; border:1px solid rgba(99,102,241,0.4); padding:1px 7px; border-radius:4px; font-size:0.68rem; font-weight:700; }
+        .badge-minnow  { background:rgba(16,185,129,0.15); color:#6ee7b7; border:1px solid rgba(16,185,129,0.4); padding:1px 7px; border-radius:4px; font-size:0.68rem; font-weight:700; }
+
+        /* ===== ヒートマップ ===== */
+        .heatmap-grid { display: grid; grid-template-columns: 40px repeat(24, 1fr); gap: 2px; }
+        .heatmap-cell { border-radius: 3px; aspect-ratio: 1; min-width: 0; transition: transform 0.1s; cursor: default; }
+        .heatmap-cell:hover { transform: scale(1.3); z-index: 10; }
+        .heatmap-label { font-size: 0.6rem; color: #64748b; display: flex; align-items: center; justify-content: flex-end; padding-right: 4px; }
+        .heatmap-hlabel { font-size: 0.6rem; color: #64748b; text-align: center; }
+
+        /* ===== アラートバナー ===== */
+        .alert-banner { border-radius: 8px; padding: 10px 16px; margin-bottom: 6px; display: flex; align-items: center; gap: 10px; font-size: 0.82rem; font-weight: 600; }
+        .alert-warn  { background: rgba(234,179,8,0.12);  border: 1px solid rgba(234,179,8,0.4);  color: #fde68a; }
+        .alert-danger{ background: rgba(239,68,68,0.12);  border: 1px solid rgba(239,68,68,0.4);  color: #fca5a5; }
+        .alert-info  { background: rgba(56,189,248,0.10); border: 1px solid rgba(56,189,248,0.35); color: #7dd3fc; }
+
+        /* ===== 印刷 ===== */
+        @media print {
+            body { background: #fff !important; color: #111 !important; }
+            .card { background: #f8fafc !important; border-color: #cbd5e1 !important; break-inside: avoid; }
+            .no-print { display: none !important; }
+            .print-break { page-break-before: always; }
+            canvas { max-height: 220px !important; }
+        }
     </style>
 </head>
-<body class="p-4 md:p-8">
+<body class="p-4 md:p-6">
 <div class="max-w-[1600px] mx-auto">
 
-    <!-- ヘッダー -->
-    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
+<!-- ===== ヘッダー ===== -->
+<div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4 no-print">
+    <div>
+        <h1 class="text-3xl font-extrabold tracking-tight">Game Intelligence <span style="color:#38bdf8">Dashboard</span></h1>
+        <p class="text-slate-400 text-sm mt-1">ユーザーアナリティクス</p>
+    </div>
+    <div class="flex flex-col gap-2 items-end">
+        <div class="flex items-center gap-3 flex-wrap justify-end">
+            <button onclick="window.print()" class="bg-slate-700 hover:bg-slate-600 text-white text-sm font-bold py-2 px-4 rounded-md border border-slate-600 flex items-center gap-2">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg>印刷
+            </button>
+            <button onclick="toggleAlertPanel()" class="bg-slate-700 hover:bg-slate-600 text-white text-sm font-bold py-2 px-4 rounded-md border border-slate-600 flex items-center gap-2">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>アラート設定
+            </button>
+            <button onclick="toggleManual()" class="bg-slate-700 hover:bg-slate-600 text-white text-sm font-bold py-2 px-4 rounded-md border border-slate-600 flex items-center gap-2">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>マニュアル
+            </button>
+            <div class="bg-sky-900/50 p-1.5 rounded-md border border-sky-700 flex items-center gap-2">
+                <span class="text-xs font-bold text-sky-300 ml-2">1. ユーザーCSV:</span>
+                <input type="file" id="csvFile" accept=".csv" class="text-sm text-slate-300 file:mr-4 file:py-1 file:px-3 file:rounded-md file:border-0 file:bg-sky-600 file:text-white hover:file:bg-sky-500 cursor-pointer">
+            </div>
+            <div class="bg-emerald-900/50 p-1.5 rounded-md border border-emerald-700 flex items-center gap-2">
+                <span class="text-xs font-bold text-emerald-300 ml-2">2. 売上CSV:</span>
+                <input type="file" id="salesFile" accept=".csv" class="text-sm text-slate-300 file:mr-4 file:py-1 file:px-3 file:rounded-md file:border-0 file:bg-emerald-600 file:text-white hover:file:bg-emerald-500 cursor-pointer">
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ===== アラートバナーエリア ===== -->
+<div id="alertArea" class="mb-4"></div>
+
+<!-- ===== 運営データ入力 ===== -->
+<div class="card p-5 mb-6 border-l-4 border-purple-500 bg-slate-800/50 no-print">
+    <h2 class="text-sm font-bold text-white mb-4">運営データ入力 (管理パネル数値)</h2>
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div><label class="block text-xs font-bold text-slate-300 mb-1">DAU</label><input type="number" id="inputDau" class="input-field font-bold text-sky-300" placeholder="例: 1500" value="0"></div>
+        <div><label class="block text-xs font-bold text-slate-300 mb-1">WAU</label><input type="number" id="inputWau" class="input-field font-bold text-sky-300" placeholder="例: 4500" value="0"></div>
+        <div><label class="block text-xs font-bold text-slate-300 mb-1">MAU</label><input type="number" id="inputMau" class="input-field font-bold text-sky-300" placeholder="例: 10000" value="0"></div>
+        <div><label class="block text-xs font-bold text-slate-300 mb-1">累計課金額 (JPY) ※CSV自動入力</label><input type="number" id="inputRevenue" class="input-field font-bold text-emerald-400" placeholder="例: 5000000" value="0"></div>
+    </div>
+</div>
+
+<!-- ===== KPI 上段 ===== -->
+<div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+    <div class="card p-5 border-t-2 border-purple-500">
+        <p class="text-slate-400 text-xs font-bold">定着率 (DAU/MAU)</p>
+        <p id="kpi-stickiness" class="text-3xl font-bold mt-1 text-white">0.0%</p>
+    </div>
+    <div class="card p-5 border-t-2 border-amber-500">
+        <p class="text-slate-400 text-xs font-bold">課金ユーザー率 (PUR)</p>
+        <p id="kpi-pur" class="text-3xl font-bold mt-1 text-amber-400">0.0%</p>
+    </div>
+    <div class="card p-5 border-t-2 border-emerald-500">
+        <p class="text-slate-400 text-xs font-bold">ARPPU</p>
+        <p id="kpi-arppu" class="text-3xl font-bold mt-1 text-emerald-400">¥ 0</p>
+    </div>
+    <div class="card p-5 border-t-2 border-pink-500">
+        <p class="text-slate-400 text-xs font-bold">月間収益予測</p>
+        <p id="kpi-forecast" class="text-3xl font-bold mt-1 text-pink-400">¥ 0</p>
+    </div>
+</div>
+
+<!-- ===== フィルター ===== -->
+<div class="card p-4 mb-4 no-print">
+    <div class="grid grid-cols-1 md:grid-cols-6 gap-3 items-end">
         <div>
-            <h1 class="text-3xl font-extrabold tracking-tight">Game Intelligence <span class="accent-blue">Dashboard</span></h1>
-            <p class="text-slate-400 text-sm mt-1">ユーザーアナリティクス</p>
-        </div>
-        <div class="flex flex-col gap-2 items-end">
-            <div class="flex items-center gap-4">
-                <button onclick="toggleManual()" class="bg-slate-700 hover:bg-slate-600 text-white text-sm font-bold py-2 px-4 rounded-md transition-all flex items-center gap-2 border border-slate-600">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                    マニュアル
-                </button>
-                <div class="bg-sky-900/50 p-1.5 rounded-md border border-sky-700 flex items-center gap-2">
-                    <span class="text-xs font-bold text-sky-300 ml-2">1. ユーザーCSV:</span>
-                    <input type="file" id="csvFile" accept=".csv" class="text-sm text-slate-300 file:mr-4 file:py-1 file:px-3 file:rounded-md file:border-0 file:bg-sky-600 file:text-white hover:file:bg-sky-500 cursor-pointer">
-                </div>
-            </div>
-            <div class="flex items-center gap-4">
-                <div class="bg-emerald-900/50 p-1.5 rounded-md border border-emerald-700 flex items-center gap-2">
-                    <span class="text-xs font-bold text-emerald-300 ml-2">2. 売上CSV:</span>
-                    <input type="file" id="salesFile" accept=".csv" class="text-sm text-slate-300 file:mr-4 file:py-1 file:px-3 file:rounded-md file:border-0 file:bg-emerald-600 file:text-white hover:file:bg-emerald-500 cursor-pointer">
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- 運営データ入力 -->
-    <div class="card p-6 mb-8 border-l-4 border-purple-500 bg-slate-800/50">
-        <h2 class="text-lg font-bold text-white mb-4">運営データ入力 (管理パネル数値)</h2>
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
-            <div>
-                <label class="block text-sm font-bold text-slate-200 mb-2">DAU (日次アクティブ)</label>
-                <input type="number" id="inputDau" class="input-field text-lg font-bold text-sky-300" placeholder="例: 1500" value="0">
-            </div>
-            <div>
-                <label class="block text-sm font-bold text-slate-200 mb-2">WAU (週次アクティブ)</label>
-                <input type="number" id="inputWau" class="input-field text-lg font-bold text-sky-300" placeholder="例: 4500" value="0">
-            </div>
-            <div>
-                <label class="block text-sm font-bold text-slate-200 mb-2">MAU (月次アクティブ)</label>
-                <input type="number" id="inputMau" class="input-field text-lg font-bold text-sky-300" placeholder="例: 10000" value="0">
-            </div>
-            <div>
-                <label class="block text-sm font-bold text-slate-200 mb-2">累計課金額 (円) ※CSV自動入力</label>
-                <input type="number" id="inputRevenue" class="input-field text-lg font-bold text-emerald-400" placeholder="例: 5000000" value="0">
-            </div>
-        </div>
-    </div>
-
-    <!-- KPI上段（運営指標） -->
-    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-        <div class="card p-5 shadow-xl border-t-2 border-purple-500">
-            <p class="text-slate-400 text-xs font-bold">定着率 (DAU/MAU)</p>
-            <p id="kpi-stickiness" class="text-3xl font-bold mt-1 text-white">0.0%</p>
-        </div>
-        <div class="card p-5 shadow-xl border-t-2 border-amber-500">
-            <p class="text-slate-400 text-xs font-bold">課金ユーザー率 (PUR)</p>
-            <p id="kpi-pur" class="text-3xl font-bold mt-1 text-amber-400">0.0%</p>
-        </div>
-        <div class="card p-5 shadow-xl border-t-2 border-emerald-500">
-            <p class="text-slate-400 text-xs font-bold">ARPPU (課金者平均)</p>
-            <p id="kpi-arppu" class="text-3xl font-bold mt-1 text-emerald-400">¥ 0</p>
-        </div>
-        <div class="card p-5 shadow-xl border-t-2 border-pink-500">
-            <p class="text-slate-400 text-xs font-bold">月間収益予測</p>
-            <p id="kpi-forecast" class="text-3xl font-bold mt-1 text-pink-400">¥ 0</p>
-        </div>
-    </div>
-
-    <!-- フィルター -->
-    <div class="card p-5 mb-6 grid grid-cols-1 md:grid-cols-5 gap-4 items-end">
-        <div>
-            <label class="block text-sm font-bold text-slate-200 mb-2">レベル範囲</label>
-            <div class="flex gap-2">
-                <input type="number" id="minLevel" value="1" class="input-field text-sm" placeholder="最小Lv">
-                <span class="text-slate-400 self-center">〜</span>
-                <input type="number" id="maxLevel" value="1000" class="input-field text-sm" placeholder="最大Lv">
+            <label class="block text-xs font-bold text-slate-300 mb-1">レベル範囲</label>
+            <div class="flex gap-1">
+                <input type="number" id="minLevel" value="1" class="input-field text-sm" placeholder="最小">
+                <span class="text-slate-400 self-center text-xs">〜</span>
+                <input type="number" id="maxLevel" value="1000" class="input-field text-sm" placeholder="最大">
             </div>
         </div>
         <div class="col-span-2">
-            <label class="block text-sm font-bold text-slate-200 mb-2">期間指定 (登録日)</label>
-            <div class="flex gap-2">
+            <label class="block text-xs font-bold text-slate-300 mb-1">期間指定 (登録日)</label>
+            <div class="flex gap-1">
                 <input type="date" id="startDate" class="input-field text-sm">
-                <span class="text-slate-400 self-center">〜</span>
+                <span class="text-slate-400 self-center text-xs">〜</span>
                 <input type="date" id="endDate" class="input-field text-sm">
             </div>
         </div>
         <div>
-            <label class="block text-sm font-bold text-slate-200 mb-2">課金状態</label>
+            <label class="block text-xs font-bold text-slate-300 mb-1">課金状態</label>
             <select id="payerFilter" class="input-field text-sm">
                 <option value="ALL">すべて</option>
                 <option value="PAYER">課金者のみ</option>
                 <option value="NON_PAYER">無課金者のみ</option>
             </select>
         </div>
-        <button onclick="applyFilters()" class="bg-sky-600 hover:bg-sky-500 text-white font-bold py-2 px-6 rounded-md transition-all h-[38px] flex items-center justify-center">
+        <div>
+            <label class="block text-xs font-bold text-slate-300 mb-1">ユーザー検索</label>
+            <input type="text" id="searchQuery" class="input-field text-sm" placeholder="名前で検索..." oninput="onSearch()">
+        </div>
+        <button onclick="applyFilters()" class="bg-sky-600 hover:bg-sky-500 text-white font-bold py-2 px-4 rounded-md text-sm h-[38px] flex items-center justify-center">
             絞り込み適用
         </button>
     </div>
+</div>
 
-    <!-- KPI下段（フィルター連動） -->
-    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-        <div class="card p-5 shadow-xl">
-            <p class="text-slate-400 text-xs font-bold">分析対象ユーザー</p>
-            <p id="kpi-count" class="text-3xl font-bold mt-1 text-white">-</p>
-        </div>
-        <div class="card p-5 shadow-xl border-l-4 border-sky-500">
-            <p class="text-slate-400 text-xs font-bold">平均レベル</p>
-            <p id="kpi-avg-lv" class="text-3xl font-bold mt-1 text-white">-</p>
-        </div>
-        <div class="card p-5 shadow-xl border-l-4 border-yellow-500">
-            <p class="text-slate-400 text-xs font-bold">離脱リスク (10日&Lv≤10)</p>
-            <p id="kpi-risk" class="text-3xl font-bold mt-1 text-yellow-400">-</p>
-        </div>
-        <div class="card p-5 shadow-xl border-l-4 border-red-500">
-            <p class="text-slate-400 text-xs font-bold">離脱状態 (20日&Lv≤10)</p>
-            <p id="kpi-churn" class="text-3xl font-bold mt-1 text-red-400">-</p>
+<!-- ===== KPI 下段 ===== -->
+<div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+    <div class="card p-5">
+        <p class="text-slate-400 text-xs font-bold">分析対象ユーザー</p>
+        <p id="kpi-count" class="text-3xl font-bold mt-1 text-white">-</p>
+    </div>
+    <div class="card p-5 border-l-4 border-sky-500">
+        <p class="text-slate-400 text-xs font-bold">平均レベル</p>
+        <p id="kpi-avg-lv" class="text-3xl font-bold mt-1 text-white">-</p>
+    </div>
+    <div class="card p-5 border-l-4 border-yellow-500">
+        <p class="text-slate-400 text-xs font-bold">離脱リスク (10日&Lv≤10)</p>
+        <p id="kpi-risk" class="text-3xl font-bold mt-1 text-yellow-400">-</p>
+    </div>
+    <div class="card p-5 border-l-4 border-red-500">
+        <p class="text-slate-400 text-xs font-bold">離脱状態 (20日&Lv≤10)</p>
+        <p id="kpi-churn" class="text-3xl font-bold mt-1 text-red-400">-</p>
+    </div>
+</div>
+
+<!-- ===== ROW1: レベル分布 + 登録トレンド ===== -->
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
+    <div class="card p-5">
+        <p class="section-title">レベル分布</p>
+        <div class="h-[260px]"><canvas id="levelChart"></canvas></div>
+    </div>
+    <div class="card p-5">
+        <p class="section-title">新規登録トレンド</p>
+        <div class="h-[260px]"><canvas id="trendChart"></canvas></div>
+    </div>
+</div>
+
+<!-- ===== ROW2: 売上トレンド ===== -->
+<div class="card p-5 mb-4">
+    <div class="flex items-center justify-between mb-4">
+        <p class="section-title mb-0">売上トレンド (JPY)</p>
+        <div class="flex gap-2 no-print" id="revTrendTabs">
+            <button class="tab-btn active" onclick="setRevTab('daily',this)">日次</button>
+            <button class="tab-btn" onclick="setRevTab('weekly',this)">週次</button>
         </div>
     </div>
+    <div class="h-[220px]"><canvas id="revTrendChart"></canvas></div>
+    <p id="revTrendEmpty" class="text-center text-slate-500 text-sm mt-4 hidden">売上CSVを読み込むと表示されます</p>
+</div>
 
-    <!-- ===== チャートセクション ===== -->
-
-    <!-- 行1: レベル分布 + 新規登録トレンド -->
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-        <div class="card p-6">
-            <h3 class="text-sm font-bold mb-4 text-slate-300 uppercase tracking-widest">レベル分布</h3>
-            <div class="h-[280px]"><canvas id="levelChart"></canvas></div>
-        </div>
-        <div class="card p-6">
-            <h3 class="text-sm font-bold mb-4 text-slate-300 uppercase tracking-widest">新規登録トレンド</h3>
-            <div class="h-[280px]"><canvas id="trendChart"></canvas></div>
-        </div>
+<!-- ===== ROW3: 課金セグメント + 決済手段 + Top10 ===== -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4">
+    <div class="card p-5">
+        <p class="section-title">課金セグメント</p>
+        <p class="text-xs text-slate-500 -mt-2 mb-3">クジラ≥¥10k / イルカ¥1k〜 / 小魚〜¥999</p>
+        <div class="h-[190px] flex items-center justify-center"><canvas id="segmentChart"></canvas></div>
+        <div id="segmentLegend" class="mt-3 grid grid-cols-3 gap-1 text-center text-xs"></div>
+        <p id="segmentEmpty" class="text-center text-slate-500 text-sm mt-2 hidden">売上CSVを読み込むと表示されます</p>
     </div>
+    <div class="card p-5">
+        <p class="section-title">決済手段別売上</p>
+        <div class="h-[190px] flex items-center justify-center"><canvas id="methodChart"></canvas></div>
+        <div id="methodLegend" class="mt-3 space-y-1 text-xs"></div>
+        <p id="methodEmpty" class="text-center text-slate-500 text-sm mt-2 hidden">売上CSVを読み込むと表示されます</p>
+    </div>
+    <div class="card p-5">
+        <p class="section-title">Top 10 課金者</p>
+        <div class="h-[250px]"><canvas id="topPayersChart"></canvas></div>
+        <p id="topPayersEmpty" class="text-center text-slate-500 text-sm mt-2 hidden">売上CSVを読み込むと表示されます</p>
+    </div>
+</div>
 
-    <!-- 行2: 売上トレンド（フル幅）-->
-    <div class="card p-6 mb-6">
-        <div class="flex items-center justify-between mb-4">
-            <h3 class="text-sm font-bold text-slate-300 uppercase tracking-widest">売上トレンド (JPY)</h3>
-            <div class="flex gap-2" id="revTrendTabs">
-                <button class="tab-btn active" onclick="setRevTab('daily', this)">日次</button>
-                <button class="tab-btn" onclick="setRevTab('weekly', this)">週次</button>
+<!-- ===== ROW4: リピート課金 + パック別売上 ===== -->
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4 print-break">
+    <!-- リピート課金 -->
+    <div class="card p-5">
+        <p class="section-title">リピート課金分析</p>
+        <p class="text-xs text-slate-500 -mt-2 mb-3">1回のみ課金 vs 複数回課金の構成</p>
+        <div class="grid grid-cols-2 gap-3 mb-4" id="repeatKpiArea">
+            <div class="bg-slate-800/60 rounded-lg p-3 text-center">
+                <p class="text-xs text-slate-400">1回のみ課金</p>
+                <p id="kpi-onetime" class="text-2xl font-bold text-sky-400 mt-1">-</p>
+            </div>
+            <div class="bg-slate-800/60 rounded-lg p-3 text-center">
+                <p class="text-xs text-slate-400">リピーター</p>
+                <p id="kpi-repeat" class="text-2xl font-bold text-emerald-400 mt-1">-</p>
+            </div>
+            <div class="bg-slate-800/60 rounded-lg p-3 text-center">
+                <p class="text-xs text-slate-400">リピーター率</p>
+                <p id="kpi-repeat-rate" class="text-2xl font-bold text-amber-400 mt-1">-</p>
+            </div>
+            <div class="bg-slate-800/60 rounded-lg p-3 text-center">
+                <p class="text-xs text-slate-400">リピーター平均LTV</p>
+                <p id="kpi-repeat-ltv" class="text-2xl font-bold text-purple-400 mt-1">-</p>
             </div>
         </div>
-        <div class="h-[260px]"><canvas id="revTrendChart"></canvas></div>
-        <p id="revTrendEmpty" class="text-center text-slate-500 text-sm mt-4 hidden">売上CSVを読み込むと表示されます</p>
+        <div class="h-[160px]"><canvas id="repeatChart"></canvas></div>
+        <p id="repeatEmpty" class="text-center text-slate-500 text-sm mt-2 hidden">売上CSVを読み込むと表示されます</p>
     </div>
 
-    <!-- 行3: 課金セグメント + 決済手段 + Top10 -->
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+    <!-- パック別売上 -->
+    <div class="card p-5">
+        <p class="section-title">パック別売上ランキング</p>
+        <div class="h-[300px]"><canvas id="packChart"></canvas></div>
+        <p id="packEmpty" class="text-center text-slate-500 text-sm mt-2 hidden">売上CSVを読み込むと表示されます</p>
+    </div>
+</div>
 
-        <!-- 課金セグメント -->
-        <div class="card p-6">
-            <h3 class="text-sm font-bold mb-1 text-slate-300 uppercase tracking-widest">課金セグメント</h3>
-            <p class="text-xs text-slate-500 mb-4">クジラ ≥¥10,000 / イルカ ¥1,000〜 / 小魚 〜¥999</p>
-            <div class="h-[220px] flex items-center justify-center"><canvas id="segmentChart"></canvas></div>
-            <div id="segmentLegend" class="mt-4 grid grid-cols-3 gap-2 text-center text-xs"></div>
-            <p id="segmentEmpty" class="text-center text-slate-500 text-sm mt-4 hidden">売上CSVを読み込むと表示されます</p>
-        </div>
-
-        <!-- 決済手段別売上 -->
-        <div class="card p-6">
-            <h3 class="text-sm font-bold mb-4 text-slate-300 uppercase tracking-widest">決済手段別売上</h3>
-            <div class="h-[220px] flex items-center justify-center"><canvas id="methodChart"></canvas></div>
-            <div id="methodLegend" class="mt-4 space-y-1 text-xs"></div>
-            <p id="methodEmpty" class="text-center text-slate-500 text-sm mt-4 hidden">売上CSVを読み込むと表示されます</p>
-        </div>
-
-        <!-- Top10課金者 -->
-        <div class="card p-6">
-            <h3 class="text-sm font-bold mb-4 text-slate-300 uppercase tracking-widest">Top 10 課金者</h3>
-            <div class="h-[260px]"><canvas id="topPayersChart"></canvas></div>
-            <p id="topPayersEmpty" class="text-center text-slate-500 text-sm mt-4 hidden">売上CSVを読み込むと表示されます</p>
+<!-- ===== ROW5: 時間帯×曜日ヒートマップ ===== -->
+<div class="card p-5 mb-4">
+    <div class="flex items-center justify-between mb-3">
+        <p class="section-title mb-0">時間帯別・曜日別 課金ヒートマップ</p>
+        <div class="flex gap-2 no-print" id="heatTabs">
+            <button class="tab-btn active" onclick="setHeatTab('amount',this)">売上金額</button>
+            <button class="tab-btn" onclick="setHeatTab('count',this)">件数</button>
         </div>
     </div>
+    <div id="heatmapContainer" class="overflow-x-auto">
+        <p id="heatmapEmpty" class="text-center text-slate-500 text-sm py-8">売上CSVを読み込むと表示されます</p>
+    </div>
+    <div class="flex items-center gap-2 mt-3 text-xs text-slate-500">
+        <span>少</span>
+        <div id="heatLegendGrad" class="flex gap-0.5">
+            <div class="w-4 h-3 rounded-sm" style="background:#1e293b"></div>
+            <div class="w-4 h-3 rounded-sm" style="background:#0c4a6e"></div>
+            <div class="w-4 h-3 rounded-sm" style="background:#075985"></div>
+            <div class="w-4 h-3 rounded-sm" style="background:#0284c7"></div>
+            <div class="w-4 h-3 rounded-sm" style="background:#0ea5e9"></div>
+            <div class="w-4 h-3 rounded-sm" style="background:#38bdf8"></div>
+            <div class="w-4 h-3 rounded-sm" style="background:#7dd3fc"></div>
+        </div>
+        <span>多</span>
+    </div>
+</div>
 
-    <!-- ユーザーテーブル -->
-    <div class="card overflow-hidden mb-8">
-        <div class="p-5 border-b border-slate-700 flex flex-wrap justify-between items-center gap-3 bg-slate-800/80">
-            <h3 class="text-base font-bold text-white">ユーザーリスト</h3>
-            <div class="flex items-center gap-3">
-                <span id="listCount" class="text-sm text-slate-300 font-medium bg-slate-700 px-3 py-1 rounded"></span>
-                <button onclick="exportCSV()" class="bg-emerald-700 hover:bg-emerald-600 text-white text-xs font-bold py-1.5 px-4 rounded-md transition-all flex items-center gap-1.5">
-                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
-                    CSVエクスポート
-                </button>
+<!-- ===== ROW6: コホート + レベル速度 ===== -->
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
+    <!-- コホート分析 -->
+    <div class="card p-5">
+        <p class="section-title">コホート分析（登録週別 Lv10超え率）</p>
+        <p class="text-xs text-slate-500 -mt-2 mb-3">各登録週のユーザーが現在Lv10を超えている割合</p>
+        <div class="h-[260px]"><canvas id="cohortChart"></canvas></div>
+        <p id="cohortEmpty" class="text-center text-slate-500 text-sm mt-2 hidden">ユーザーCSVを読み込むと表示されます</p>
+    </div>
+
+    <!-- レベル速度分布 -->
+    <div class="card p-5">
+        <p class="section-title">レベル到達速度分布</p>
+        <p class="text-xs text-slate-500 -mt-2 mb-3">「経過日数 ÷ レベル」= 1レベルに何日かかるか</p>
+        <div class="grid grid-cols-3 gap-2 mb-3">
+            <div class="bg-slate-800/60 rounded-lg p-2 text-center">
+                <p class="text-xs text-slate-400">ガチ勢<br><span class="text-slate-500 text-xs">〜1日/Lv</span></p>
+                <p id="kpi-speed-fast" class="text-xl font-bold text-emerald-400 mt-1">-</p>
+            </div>
+            <div class="bg-slate-800/60 rounded-lg p-2 text-center">
+                <p class="text-xs text-slate-400">標準層<br><span class="text-slate-500 text-xs">1〜7日/Lv</span></p>
+                <p id="kpi-speed-mid" class="text-xl font-bold text-sky-400 mt-1">-</p>
+            </div>
+            <div class="bg-slate-800/60 rounded-lg p-2 text-center">
+                <p class="text-xs text-slate-400">のんびり<br><span class="text-slate-500 text-xs">7日超/Lv</span></p>
+                <p id="kpi-speed-slow" class="text-xl font-bold text-slate-400 mt-1">-</p>
             </div>
         </div>
-        <div class="overflow-x-auto max-h-[600px]">
-            <table class="w-full text-left text-sm">
-                <thead class="bg-slate-900 text-slate-300 sticky top-0 z-10 shadow">
-                    <tr>
-                        <th class="px-5 py-4 font-bold border-b border-slate-700 sortable" data-col="NAME" onclick="sortTable('NAME', this)">NAME <span class="sort-icon"></span></th>
-                        <th class="px-5 py-4 font-bold border-b border-slate-700 sortable desc" data-col="lvNum" onclick="sortTable('lvNum', this)">LEVEL <span class="sort-icon"></span></th>
-                        <th class="px-5 py-4 font-bold border-b border-slate-700 text-emerald-400 sortable" data-col="ltv" onclick="sortTable('ltv', this)">累計課金額 <span class="sort-icon"></span></th>
-                        <th class="px-5 py-4 font-bold border-b border-slate-700 sortable" data-col="STATUS" onclick="sortTable('STATUS', this)">STATUS <span class="sort-icon"></span></th>
-                        <th class="px-5 py-4 font-bold border-b border-slate-700 sortable" data-col="days" onclick="sortTable('days', this)">経過日数 <span class="sort-icon"></span></th>
-                    </tr>
-                </thead>
-                <tbody id="userTableBody" class="divide-y divide-slate-700/50 text-slate-200"></tbody>
-            </table>
+        <div class="h-[200px]"><canvas id="speedChart"></canvas></div>
+        <p id="speedEmpty" class="text-center text-slate-500 text-sm mt-2 hidden">ユーザーCSVを読み込むと表示されます</p>
+    </div>
+</div>
+
+<!-- ===== ROW7: STATUS内訳 + 初回課金日数分布 ===== -->
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+    <!-- STATUS内訳 -->
+    <div class="card p-5">
+        <p class="section-title">ユーザーステータス内訳</p>
+        <div class="grid grid-cols-2 gap-3 mb-3" id="statusKpiArea"></div>
+        <div class="h-[200px]"><canvas id="statusChart"></canvas></div>
+        <p id="statusEmpty" class="text-center text-slate-500 text-sm mt-2 hidden">ユーザーCSVを読み込むと表示されます</p>
+    </div>
+
+    <!-- 初回課金日数分布 -->
+    <div class="card p-5">
+        <p class="section-title">初回課金までの日数分布</p>
+        <p class="text-xs text-slate-500 -mt-2 mb-3">登録日から最初の課金日までの経過日数（両CSV必須）</p>
+        <div class="grid grid-cols-3 gap-2 mb-3">
+            <div class="bg-slate-800/60 rounded-lg p-2 text-center">
+                <p class="text-xs text-slate-400">即日課金<br><span class="text-slate-500 text-xs">0〜1日</span></p>
+                <p id="kpi-conv-fast" class="text-xl font-bold text-emerald-400 mt-1">-</p>
+            </div>
+            <div class="bg-slate-800/60 rounded-lg p-2 text-center">
+                <p class="text-xs text-slate-400">中期転換<br><span class="text-slate-500 text-xs">2〜7日</span></p>
+                <p id="kpi-conv-mid" class="text-xl font-bold text-amber-400 mt-1">-</p>
+            </div>
+            <div class="bg-slate-800/60 rounded-lg p-2 text-center">
+                <p class="text-xs text-slate-400">長期転換<br><span class="text-slate-500 text-xs">8日以上</span></p>
+                <p id="kpi-conv-slow" class="text-xl font-bold text-slate-400 mt-1">-</p>
+            </div>
+        </div>
+        <div class="h-[200px]"><canvas id="convDaysChart"></canvas></div>
+        <p id="convDaysEmpty" class="text-center text-slate-500 text-sm mt-2 hidden">両方のCSVを読み込むと表示されます</p>
+    </div>
+</div>
+
+<!-- ===== ユーザーテーブル ===== -->
+<div class="card overflow-hidden mb-8">
+    <div class="p-4 border-b border-slate-700 flex flex-wrap justify-between items-center gap-3 bg-slate-800/80">
+        <h3 class="text-sm font-bold text-white">ユーザーリスト</h3>
+        <div class="flex items-center gap-3 no-print">
+            <span id="listCount" class="text-xs text-slate-300 font-medium bg-slate-700 px-3 py-1 rounded"></span>
+            <button onclick="exportCSV()" class="bg-emerald-700 hover:bg-emerald-600 text-white text-xs font-bold py-1.5 px-4 rounded-md flex items-center gap-1.5">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                CSVエクスポート
+            </button>
         </div>
     </div>
+    <div class="overflow-x-auto max-h-[600px]">
+        <table class="w-full text-left text-sm">
+            <thead class="bg-slate-900 text-slate-300 sticky top-0 z-10">
+                <tr>
+                    <th class="px-5 py-3 font-bold border-b border-slate-700 sortable" data-col="NAME" onclick="sortTable('NAME',this)">NAME <span class="si"></span></th>
+                    <th class="px-5 py-3 font-bold border-b border-slate-700 sortable desc" data-col="lvNum" onclick="sortTable('lvNum',this)">LEVEL <span class="si"></span></th>
+                    <th class="px-5 py-3 font-bold border-b border-slate-700 text-emerald-400 sortable" data-col="ltv" onclick="sortTable('ltv',this)">累計課金額 <span class="si"></span></th>
+                    <th class="px-5 py-3 font-bold border-b border-slate-700 sortable" data-col="STATUS" onclick="sortTable('STATUS',this)">STATUS <span class="si"></span></th>
+                    <th class="px-5 py-3 font-bold border-b border-slate-700 sortable" data-col="days" onclick="sortTable('days',this)">経過日数 <span class="si"></span></th>
+                    <th class="px-5 py-3 font-bold border-b border-slate-700">課金回数</th>
+                </tr>
+            </thead>
+            <tbody id="userTableBody" class="divide-y divide-slate-700/50 text-slate-200"></tbody>
+        </table>
+    </div>
+</div>
 
 </div><!-- /max-w -->
 
-<!-- マニュアルモーダル -->
-<div id="manualModal" class="fixed inset-0 bg-black/80 z-50 hidden flex justify-center items-center p-4 backdrop-blur-sm">
-    <div class="bg-slate-800 rounded-xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-hidden flex flex-col border border-slate-600">
-        <div class="p-5 border-b border-slate-700 flex justify-between items-center bg-slate-900">
-            <h2 class="text-xl font-bold text-white">📖 利用マニュアル</h2>
-            <button onclick="toggleManual()" class="text-slate-400 hover:text-white text-3xl leading-none">&times;</button>
+<!-- ===== アラート設定パネル ===== -->
+<div id="alertPanel" class="hidden fixed inset-0 bg-black/70 z-50 flex justify-center items-center p-4 backdrop-blur-sm no-print">
+    <div class="bg-slate-800 rounded-xl shadow-2xl w-full max-w-lg border border-slate-600">
+        <div class="p-5 border-b border-slate-700 flex justify-between items-center">
+            <h2 class="text-lg font-bold text-white">🔔 アラート設定</h2>
+            <button onclick="toggleAlertPanel()" class="text-slate-400 hover:text-white text-2xl leading-none">&times;</button>
         </div>
-        <div class="p-6 overflow-y-auto text-slate-300 space-y-6 flex-1 text-sm">
-            <div class="bg-slate-900/50 p-4 rounded-lg border border-slate-700">
-                <p>ユーザーCSVと売上CSVを読み込むと、全指標が自動計算されます。売上CSVは <strong>CURRENCY=JPY の行のみ</strong>を集計対象とします（ゲーム内通貨付与ログを除外）。</p>
+        <div class="p-5 space-y-4 text-sm">
+            <p class="text-slate-400 text-xs">CSVを読み込んだ際に、以下の閾値を超えるとバナーで通知されます。0に設定すると無効です。</p>
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-xs font-bold text-slate-300 mb-1">離脱リスク数が<span class="text-yellow-400">N名</span>を超えたら警告</label>
+                    <input type="number" id="alertRisk" class="input-field" value="0" min="0">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-300 mb-1">離脱状態数が<span class="text-red-400">N名</span>を超えたら警告</label>
+                    <input type="number" id="alertChurn" class="input-field" value="0" min="0">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-300 mb-1">課金率(PUR)が<span class="text-amber-400">N%</span>を下回ったら警告</label>
+                    <input type="number" id="alertPur" class="input-field" value="0" min="0" step="0.1">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-300 mb-1">リピーター率が<span class="text-purple-400">N%</span>を下回ったら通知</label>
+                    <input type="number" id="alertRepeat" class="input-field" value="0" min="0" step="0.1">
+                </div>
+            </div>
+        </div>
+        <div class="p-4 border-t border-slate-700 text-right">
+            <button onclick="saveAlerts()" class="bg-sky-600 hover:bg-sky-500 text-white font-bold py-2 px-6 rounded-md">保存して閉じる</button>
+        </div>
+    </div>
+</div>
+
+<!-- ===== マニュアルモーダル ===== -->
+<div id="manualModal" class="hidden fixed inset-0 bg-black/80 z-50 flex justify-center items-center p-4 backdrop-blur-sm no-print">
+    <div class="bg-slate-800 rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col border border-slate-600">
+        <div class="p-5 border-b border-slate-700 flex justify-between items-center bg-slate-900">
+            <h2 class="text-lg font-bold text-white">📖 利用マニュアル (V6)</h2>
+            <button onclick="toggleManual()" class="text-slate-400 hover:text-white text-2xl leading-none">&times;</button>
+        </div>
+        <div class="p-5 overflow-y-auto text-slate-300 space-y-4 flex-1 text-sm leading-relaxed">
+            <div class="bg-slate-900/50 p-3 rounded-lg border border-slate-700 text-xs">
+                売上CSVは <strong>CURRENCY=JPY の行のみ</strong>を集計します。ゲーム内通貨(BCOIN)付与ログは自動除外されます。
             </div>
 
-                <section>
+        <section>
                     <h3 class="text-lg font-bold text-sky-400 border-b border-slate-700 pb-2 mb-3">1. データの読み込み (CSV)</h3>
                     <p class="text-sm leading-relaxed">右上の「ファイルを選択」ボタンから、指定フォーマットのユーザーデータCSVをアップロードしてください。読み込まれたデータはブラウザ（ローカルストレージ）に自動保存されるため、次回アクセス時も前回のデータが復元されます。</p>
                 </section>
@@ -309,20 +479,28 @@
                     <h3 class="text-lg font-bold text-slate-400 border-b border-slate-700 pb-2 mb-3">5. 補足：ステータス表記について</h3>
                     <p class="text-sm leading-relaxed">ユーザーリストにおける <code>ACTIVE</code> の表記は、「アカウントがBANされておらず有効であること」を示しています。直近のログイン活動の有無を示すものではありませんので、離脱リスクの判定と併せてご活用ください。</p>
                 </section>
-
+            
             <section>
-                <h3 class="font-bold text-sky-400 border-b border-slate-700 pb-2 mb-2">機能</h3>
-                <ul class="space-y-1 list-disc pl-5">
+                <h3 class="font-bold text-sky-400 border-b border-slate-700 pb-1 mb-2">機能</h3>
+                <ul class="space-y-1.5 list-disc pl-5 text-xs">
                     <li><strong>売上トレンド:</strong> 日次・週次の収益推移をグラフ表示します。</li>
                     <li><strong>課金セグメント:</strong> クジラ(≥¥10,000) / イルカ(¥1,000〜¥9,999) / 小魚(〜¥999) の3段階で分類します。</li>
                     <li><strong>決済手段別売上:</strong> Apple Pay・Google Pay・クレジットカード・キャリア決済などの構成比を表示します。</li>
                     <li><strong>Top 10 課金者:</strong> 累計課金額ランキング上位10名を可視化します。</li>
                     <li><strong>テーブルソート:</strong> 各列ヘッダーをクリックすると昇順/降順で並べ替えられます。</li>
                     <li><strong>CSVエクスポート:</strong> フィルター後のユーザーリスト全件をCSVでダウンロードできます。</li>
+                    <li><strong>リピート課金分析:</strong> 1回のみ課金 vs 複数回課金者の比率と平均LTVを比較します。</li>
+                    <li><strong>パック別売上:</strong> どのパックが収益に最も貢献しているかをランキング表示します。</li>
+                    <li><strong>時間帯×曜日ヒートマップ:</strong> 課金が集中する時間帯・曜日を色の濃さで可視化します。セール施策のタイミング検討にご活用ください。</li>
+                    <li><strong>コホート分析:</strong> 登録週ごとにLv10超え率を折れ線で表示します。週によってチュートリアル完走率に差があるかを把握できます。</li>
+                    <li><strong>レベル速度分布:</strong> 経過日数 ÷ レベル で「1レベルに何日かかるか」を算出し、ガチ勢・標準・のんびり層を分類します。</li>
+                    <li><strong>STATUS内訳:</strong> ACTIVE / BANNED / その他の割合を可視化します。</li>
+                    <li><strong>初回課金日数分布:</strong> 登録から最初の課金まで何日かかるかを分布で表示します（両CSVが必要）。</li>
+                    <li><strong>アラート機能:</strong> ヘッダーの「アラート設定」から各指標の閾値を設定すると、CSV読み込み時にバナーで警告します。</li>
+                    <li><strong>ユーザー検索:</strong> テーブル上部の検索ボックスに入力すると、名前でリアルタイム絞り込みができます。</li>
+                    <li><strong>印刷/PDF出力:</strong> ヘッダーの「印刷」ボタンで印刷ダイアログを開きます。ブラウザの「PDFで保存」を使うとPDF化できます。</li>
                 </ul>
             </section>
-            
-            
         </div>
         <div class="p-4 border-t border-slate-700 bg-slate-900 text-right">
             <button onclick="toggleManual()" class="bg-sky-600 hover:bg-sky-500 text-white font-bold py-2 px-6 rounded-md">閉じる</button>
@@ -331,80 +509,79 @@
 </div>
 
 <script>
-// ===== ユーティリティ =====
+// =============================================
+// ユーティリティ
+// =============================================
 function normalizeName(name) {
-    return (name || '')
-        .normalize('NFKC')
-        .replace(/[\s\u3000]+/g, '')
-        .replace(/[\u200B-\u200D\uFEFF]/g, '')
-        .replace(/[^\wぁ-ゖァ-ヾ一-龯〜]/g, '')
-        .toLowerCase()
-        .trim();
+    return (name || '').normalize('NFKC')
+        .replace(/[\s\u3000]+/g,'').replace(/[\u200B-\u200D\uFEFF]/g,'')
+        .replace(/[^\wぁ-ゖァ-ヾ一-龯〜]/g,'').toLowerCase().trim();
 }
+function toggleManual()    { document.getElementById('manualModal').classList.toggle('hidden'); }
+function toggleAlertPanel(){ document.getElementById('alertPanel').classList.toggle('hidden'); }
+function saveAlerts()      { toggleAlertPanel(); checkAlerts(); }
 
-function toggleManual() { document.getElementById('manualModal').classList.toggle('hidden'); }
+const tc = '#64748b'; // tick color
+const gc = '#1e293b'; // grid color
 
-// ===== 状態 =====
-let allData = [];
-let salesMap = {};       // { normalizedName: totalJPY }
-let salesRawData = [];   // 元データ（グラフ用）
+// =============================================
+// 状態
+// =============================================
+let allData          = [];
+let salesMap         = {};    // { normName: totalJPY }
+let salesCountMap    = {};    // { normName: purchaseCount }
+let salesRawData     = [];    // { user, sales, method, pack, paidOn }
+let firstPurchaseMap = {};    // { normName: dayjs earliest }
 let currentTableData = [];
-let sortCol = 'lvNum';
-let sortDir = 'desc';
-
-// チャートインスタンス
-let levelChart = null, trendChart = null, revTrendChart = null;
-let segmentChart = null, methodChart = null, topPayersChart = null;
+let sortCol = 'lvNum', sortDir = 'desc';
+let searchQuery = '';
+let heatMode = 'amount';
 let revTabMode = 'daily';
 
-// チャート共通オプション
-const gridColor = '#1e3a5f';
-const tickColor = '#64748b';
-const chartDefaults = {
-    responsive: true,
-    maintainAspectRatio: false,
-    plugins: { legend: { display: false } },
-    scales: {
-        y: { grid: { color: '#1e293b' }, ticks: { color: tickColor } },
-        x: { grid: { display: false }, ticks: { color: tickColor } }
-    }
-};
+// チャートインスタンス
+const charts = {};
 
-// ===== CSV読み込み =====
+// =============================================
+// CSV読み込み
+// =============================================
 document.getElementById('csvFile').addEventListener('change', e => {
-    const file = e.target.files[0];
-    if (!file) return;
-    Papa.parse(file, { header: true, skipEmptyLines: true, complete: r => processData(r.data) });
+    const f = e.target.files[0]; if (!f) return;
+    Papa.parse(f, { header:true, skipEmptyLines:true, complete: r => processData(r.data) });
 });
-
 document.getElementById('salesFile').addEventListener('change', e => {
-    const file = e.target.files[0];
-    if (!file) return;
-    Papa.parse(file, { header: true, skipEmptyLines: true, complete: r => processSalesData(r.data) });
+    const f = e.target.files[0]; if (!f) return;
+    Papa.parse(f, { header:true, skipEmptyLines:true, complete: r => processSalesData(r.data) });
 });
 
-// ===== 売上データ処理 =====
+// =============================================
+// 売上データ処理
+// =============================================
 function processSalesData(rawData) {
-    salesMap = {};
+    salesMap = {}; salesCountMap = {}; salesRawData = {}; firstPurchaseMap = {};
     salesRawData = [];
     let totalRevenue = 0;
 
     rawData.forEach(row => {
-        const user     = normalizeName(String(row.USER || '').trim());
-        const sales    = parseInt(row.SALES) || 0;
-        const currency = (row.CURRENCY || '').trim().toUpperCase();
+        const user     = normalizeName(String(row.USER||'').trim());
+        const sales    = parseInt(row.SALES)||0;
+        const currency = (row.CURRENCY||'').trim().toUpperCase();
+        if (!user || sales <= 0 || currency !== 'JPY') return;
 
-        // CURRENCY=JPYのみ集計（ゲーム内通貨付与ログを除外）
-        if (user && sales > 0 && currency === 'JPY') {
-            salesMap[user] = (salesMap[user] || 0) + sales;
-            totalRevenue += sales;
-            salesRawData.push({
-                user,
-                sales,
-                method: (row.METHOD || '').trim(),
-                paidOn: row['PAID ON'] ? dayjs(row['PAID ON']) : null
-            });
+        salesMap[user]      = (salesMap[user]||0) + sales;
+        salesCountMap[user] = (salesCountMap[user]||0) + 1;
+        totalRevenue += sales;
+
+        const paidOn = row['PAID ON'] ? dayjs(row['PAID ON']) : null;
+        if (paidOn && paidOn.isValid()) {
+            if (!firstPurchaseMap[user] || paidOn.isBefore(firstPurchaseMap[user]))
+                firstPurchaseMap[user] = paidOn;
         }
+        salesRawData.push({
+            user, sales,
+            method: (row.METHOD||'').trim(),
+            pack:   (row.PACK||'').trim(),
+            paidOn
+        });
     });
 
     document.getElementById('inputRevenue').value = totalRevenue;
@@ -413,457 +590,629 @@ function processSalesData(rawData) {
     renderMethodChart();
     renderTopPayersChart();
     renderSegmentChart();
-
+    renderRepeatChart();
+    renderPackChart();
+    renderHeatmap();
+    renderConvDaysChart();
+    checkAlerts();
     if (allData.length > 0) applyFilters();
     else updateRevenueMetrics();
 }
 
-// ===== ユーザーデータ処理 =====
+// =============================================
+// ユーザーデータ処理
+// =============================================
 function processData(rawData) {
-    if (!rawData || rawData.length === 0) return;
-    const uniqueMap = new Map();
+    if (!rawData || !rawData.length) return;
+    const umap = new Map();
     rawData.forEach(d => {
         if (!d.NAME) return;
-        const key = normalizeName(d.NAME);
-        const lv  = parseInt(d.LEVEL?.replace('LEVEL_', '') || 0);
-        if (!uniqueMap.has(key) || lv > parseInt(uniqueMap.get(key).LEVEL?.replace('LEVEL_', '') || 0)) {
-            uniqueMap.set(key, d);
-        }
+        const k  = normalizeName(d.NAME);
+        const lv = parseInt(d.LEVEL?.replace('LEVEL_','')||0);
+        if (!umap.has(k) || lv > parseInt(umap.get(k).LEVEL?.replace('LEVEL_','')||0)) umap.set(k, d);
     });
-    allData = Array.from(uniqueMap.values()).map(d => ({
+    allData = Array.from(umap.values()).map(d => ({
         ...d,
-        lvNum: parseInt(d.LEVEL?.replace('LEVEL_', '') || 0),
+        lvNum: parseInt(d.LEVEL?.replace('LEVEL_','')||0),
         date:  d['FIRST LOGIN AT'] ? dayjs(d['FIRST LOGIN AT']) : null
     }));
-    const dates = allData.map(d => d.date).filter(d => d && d.isValid());
+    const dates = allData.map(d=>d.date).filter(d=>d&&d.isValid());
     if (dates.length) {
         document.getElementById('startDate').value = dayjs.min(dates).format('YYYY-MM-DD');
         document.getElementById('endDate').value   = dayjs.max(dates).format('YYYY-MM-DD');
     }
+    renderCohortChart();
+    renderStatusChart();
+    renderConvDaysChart();
     applyFilters();
 }
 
-// ===== フィルター =====
+// =============================================
+// フィルター
+// =============================================
 function applyFilters() {
     if (!allData.length) return;
-    const minLv    = parseInt(document.getElementById('minLevel').value)  || 0;
-    const maxLv    = parseInt(document.getElementById('maxLevel').value)  || 9999;
-    const startStr = document.getElementById('startDate').value;
-    const endStr   = document.getElementById('endDate').value;
-    const payerFilt= document.getElementById('payerFilter').value;
+    const minLv  = parseInt(document.getElementById('minLevel').value)||0;
+    const maxLv  = parseInt(document.getElementById('maxLevel').value)||9999;
+    const s      = document.getElementById('startDate').value;
+    const e      = document.getElementById('endDate').value;
+    const pf     = document.getElementById('payerFilter').value;
 
     const filtered = allData.filter(d => {
-        const ltv = salesMap[normalizeName(d.NAME)] || 0;
+        const ltv  = salesMap[normalizeName(d.NAME)]||0;
         const lvOk = d.lvNum >= minLv && d.lvNum <= maxLv;
         let dateOk = true;
-        if (startStr && endStr && d.date?.isValid()) {
-            dateOk = d.date.isAfter(dayjs(startStr).subtract(1,'day')) && d.date.isBefore(dayjs(endStr).add(1,'day'));
-        }
-        let payerOk = true;
-        if (payerFilt === 'PAYER')     payerOk = ltv > 0;
-        if (payerFilt === 'NON_PAYER') payerOk = ltv === 0;
-        return lvOk && dateOk && payerOk;
+        if (s && e && d.date?.isValid())
+            dateOk = d.date.isAfter(dayjs(s).subtract(1,'day')) && d.date.isBefore(dayjs(e).add(1,'day'));
+        let payOk = true;
+        if (pf==='PAYER')     payOk = ltv > 0;
+        if (pf==='NON_PAYER') payOk = ltv === 0;
+        return lvOk && dateOk && payOk;
     });
     updateDashboard(filtered);
 }
 
-// ===== ダッシュボード更新 =====
-function updateDashboard(data) {
-    const uniqueMap = new Map();
-    data.forEach(d => {
-        const name = normalizeName(d.NAME) || 'Unknown';
-        if (!uniqueMap.has(name) || d.lvNum > uniqueMap.get(name).lvNum) uniqueMap.set(name, d);
-    });
-    const uniqueData = Array.from(uniqueMap.values());
-    const count  = uniqueData.length;
-    const avgLv  = count ? (uniqueData.reduce((s,d)=>s+d.lvNum,0)/count).toFixed(1) : 0;
-    const today  = dayjs();
-    let riskCount=0, churnCount=0;
-
-    uniqueData.forEach(d => {
-        if (d.date && d.lvNum <= 10) {
-            const diff = today.diff(d.date, 'day');
-            if (diff >= 20) churnCount++;
-            else if (diff >= 10) riskCount++;
-        }
-    });
-
-    document.getElementById('kpi-count').innerText  = count.toLocaleString() + ' 名';
-    document.getElementById('kpi-avg-lv').innerText  = `Lv. ${avgLv}`;
-    document.getElementById('kpi-risk').innerText    = `${riskCount} 名`;
-    document.getElementById('kpi-churn').innerText   = `${churnCount} 名`;
-
-    renderLevelChart(uniqueData);
-    renderTrendChart(uniqueData);
-    renderSegmentChart();         // 売上データ側なので再描画だけ
-    updateRevenueMetrics();
-
-    // テーブル用データ保存 & 描画
-    currentTableData = uniqueData.map(d => ({
-        ...d,
-        ltv:  salesMap[normalizeName(d.NAME)] || 0,
-        days: d.date ? today.diff(d.date, 'day') : -1
-    }));
+function onSearch() {
+    searchQuery = document.getElementById('searchQuery').value.trim().toLowerCase();
     renderTable();
 }
 
-// ===== 収益KPI =====
+// =============================================
+// ダッシュボード更新
+// =============================================
+function updateDashboard(data) {
+    const umap = new Map();
+    data.forEach(d => {
+        const n = normalizeName(d.NAME)||'?';
+        if (!umap.has(n) || d.lvNum > umap.get(n).lvNum) umap.set(n, d);
+    });
+    const ud    = Array.from(umap.values());
+    const count = ud.length;
+    const avgLv = count ? (ud.reduce((s,d)=>s+d.lvNum,0)/count).toFixed(1) : 0;
+    const today = dayjs();
+    let riskC=0, churnC=0;
+    ud.forEach(d => {
+        if (d.date && d.lvNum <= 10) {
+            const diff = today.diff(d.date,'day');
+            if (diff >= 20) churnC++;
+            else if (diff >= 10) riskC++;
+        }
+    });
+
+    document.getElementById('kpi-count').innerText   = count.toLocaleString()+'名';
+    document.getElementById('kpi-avg-lv').innerText  = `Lv. ${avgLv}`;
+    document.getElementById('kpi-risk').innerText    = `${riskC}名`;
+    document.getElementById('kpi-churn').innerText   = `${churnC}名`;
+
+    renderLevelChart(ud);
+    renderTrendChart(ud);
+    renderSpeedChart(ud);
+    updateRevenueMetrics();
+
+    currentTableData = ud.map(d => ({
+        ...d,
+        ltv:       salesMap[normalizeName(d.NAME)]||0,
+        purchaseCount: salesCountMap[normalizeName(d.NAME)]||0,
+        days:      d.date ? today.diff(d.date,'day') : -1
+    }));
+    renderTable();
+    checkAlerts();
+}
+
+// =============================================
+// 収益 KPI
+// =============================================
 function updateRevenueMetrics() {
-    const dau   = parseFloat(document.getElementById('inputDau').value)     || 0;
-    const mau   = parseFloat(document.getElementById('inputMau').value)     || 0;
-    const totalRevenue = parseFloat(document.getElementById('inputRevenue').value) || 0;
-    const totalUsers   = allData.length || 0;
-
-    let payingUsers = 0;
-    if (totalUsers > 0) {
-        payingUsers = allData.filter(d => (salesMap[normalizeName(d.NAME)] || 0) > 0).length;
-    }
-
-    const stickiness = mau > 0 ? ((dau/mau)*100).toFixed(1) : 0;
-    const pur        = totalUsers > 0 ? ((payingUsers/totalUsers)*100).toFixed(1) : 0;
-    const arppu      = payingUsers > 0 ? Math.floor(totalRevenue/payingUsers) : 0;
-    const arpu       = totalUsers  > 0 ? Math.floor(totalRevenue/totalUsers)  : 0;
-    const forecast   = Math.floor(dau * arpu);
-
-    document.getElementById('kpi-stickiness').innerText = stickiness + '%';
-    document.getElementById('kpi-pur').innerText        = pur + '%';
-    document.getElementById('kpi-arppu').innerText      = '¥ ' + arppu.toLocaleString();
-    document.getElementById('kpi-forecast').innerText   = '¥ ' + forecast.toLocaleString();
+    const dau = parseFloat(document.getElementById('inputDau').value)||0;
+    const mau = parseFloat(document.getElementById('inputMau').value)||0;
+    const rev = parseFloat(document.getElementById('inputRevenue').value)||0;
+    const tot = allData.length||0;
+    let paying = 0;
+    if (tot > 0) paying = allData.filter(d=>(salesMap[normalizeName(d.NAME)]||0)>0).length;
+    const stk  = mau>0 ? ((dau/mau)*100).toFixed(1) : 0;
+    const pur  = tot>0  ? ((paying/tot)*100).toFixed(1) : 0;
+    const arpu = tot>0  ? Math.floor(rev/tot) : 0;
+    document.getElementById('kpi-stickiness').innerText = stk+'%';
+    document.getElementById('kpi-pur').innerText        = pur+'%';
+    document.getElementById('kpi-arppu').innerText      = '¥ '+(paying>0?Math.floor(rev/paying):0).toLocaleString();
+    document.getElementById('kpi-forecast').innerText   = '¥ '+Math.floor(dau*arpu).toLocaleString();
 }
 ['inputDau','inputWau','inputMau','inputRevenue'].forEach(id =>
-    document.getElementById(id).addEventListener('input', updateRevenueMetrics)
-);
+    document.getElementById(id).addEventListener('input', updateRevenueMetrics));
 
-// ===== チャート: レベル分布 =====
-function renderLevelChart(data) {
-    const bins = {'Lv 1':0,'Lv 2-10':0,'Lv 11-30':0,'Lv 31-50':0,'Lv 51-100':0,'Lv 101+':0};
-    data.forEach(d => {
-        if(d.lvNum===1)      bins['Lv 1']++;
-        else if(d.lvNum<=10) bins['Lv 2-10']++;
-        else if(d.lvNum<=30) bins['Lv 11-30']++;
-        else if(d.lvNum<=50) bins['Lv 31-50']++;
-        else if(d.lvNum<=100)bins['Lv 51-100']++;
-        else                  bins['Lv 101+']++;
-    });
-    if (levelChart) levelChart.destroy();
-    levelChart = new Chart(document.getElementById('levelChart'), {
-        type:'bar',
-        data:{labels:Object.keys(bins),datasets:[{label:'ユーザー数',data:Object.values(bins),backgroundColor:'#38bdf8',borderRadius:4}]},
-        options:{...chartDefaults}
+// =============================================
+// アラートチェック
+// =============================================
+function checkAlerts() {
+    const area = document.getElementById('alertArea');
+    area.innerHTML = '';
+    const alerts = [];
+
+    const riskEl   = document.getElementById('kpi-risk');
+    const churnEl  = document.getElementById('kpi-churn');
+    const purEl    = document.getElementById('kpi-pur');
+    const repRateEl= document.getElementById('kpi-repeat-rate');
+
+    const riskVal   = parseInt(riskEl.innerText)||0;
+    const churnVal  = parseInt(churnEl.innerText)||0;
+    const purVal    = parseFloat(purEl.innerText)||0;
+    const repVal    = parseFloat(repRateEl.innerText)||0;
+
+    const aRisk   = parseInt(document.getElementById('alertRisk').value)||0;
+    const aChurn  = parseInt(document.getElementById('alertChurn').value)||0;
+    const aPur    = parseFloat(document.getElementById('alertPur').value)||0;
+    const aRepeat = parseFloat(document.getElementById('alertRepeat').value)||0;
+
+    if (aRisk  > 0 && riskVal  > aRisk)  alerts.push({type:'warn',   msg:`⚠️ 離脱リスクユーザーが ${riskVal}名 に達しました（閾値: ${aRisk}名）`});
+    if (aChurn > 0 && churnVal > aChurn) alerts.push({type:'danger', msg:`🚨 離脱状態ユーザーが ${churnVal}名 に達しました（閾値: ${aChurn}名）`});
+    if (aPur   > 0 && purVal   < aPur)   alerts.push({type:'warn',   msg:`⚠️ 課金率(PUR)が ${purVal}% に低下しました（閾値: ${aPur}%）`});
+    if (aRepeat> 0 && repVal   < aRepeat)alerts.push({type:'info',   msg:`ℹ️ リピーター率が ${repVal}% に低下しました（閾値: ${aRepeat}%）`});
+
+    alerts.forEach(a => {
+        const div = document.createElement('div');
+        div.className = `alert-banner alert-${a.type}`;
+        div.innerHTML = a.msg;
+        area.appendChild(div);
     });
 }
 
-// ===== チャート: 登録トレンド =====
+// =============================================
+// チャート: レベル分布
+// =============================================
+function renderLevelChart(data) {
+    const bins = {'Lv1':0,'Lv2-10':0,'Lv11-30':0,'Lv31-50':0,'Lv51-100':0,'Lv101+':0};
+    data.forEach(d => {
+        if(d.lvNum===1)       bins['Lv1']++;
+        else if(d.lvNum<=10)  bins['Lv2-10']++;
+        else if(d.lvNum<=30)  bins['Lv11-30']++;
+        else if(d.lvNum<=50)  bins['Lv31-50']++;
+        else if(d.lvNum<=100) bins['Lv51-100']++;
+        else                   bins['Lv101+']++;
+    });
+    mkChart('levelChart','bar',
+        {labels:Object.keys(bins),datasets:[{data:Object.values(bins),backgroundColor:'#38bdf8',borderRadius:3}]},
+        {plugins:{legend:{display:false}},scales:{y:{grid:{color:gc},ticks:{color:tc}},x:{grid:{display:false},ticks:{color:tc}}}}
+    );
+}
+
+// =============================================
+// チャート: 登録トレンド
+// =============================================
 function renderTrendChart(data) {
     const daily = {};
     data.forEach(d => { if(d.date){const k=d.date.format('MM/DD');daily[k]=(daily[k]||0)+1;} });
     const labels = Object.keys(daily).sort();
-    if (trendChart) trendChart.destroy();
-    trendChart = new Chart(document.getElementById('trendChart'), {
-        type:'line',
-        data:{labels,datasets:[{label:'新規登録数',data:labels.map(l=>daily[l]),borderColor:'#10b981',backgroundColor:'rgba(16,185,129,0.15)',fill:true,tension:0.3,pointRadius:2}]},
-        options:{...chartDefaults}
-    });
+    mkChart('trendChart','line',
+        {labels,datasets:[{data:labels.map(l=>daily[l]),borderColor:'#10b981',backgroundColor:'rgba(16,185,129,0.12)',fill:true,tension:0.3,pointRadius:2}]},
+        {plugins:{legend:{display:false}},scales:{y:{grid:{color:gc},ticks:{color:tc}},x:{grid:{display:false},ticks:{color:tc}}}}
+    );
 }
 
-// ===== チャート: 売上トレンド =====
+// =============================================
+// チャート: 売上トレンド
+// =============================================
 function setRevTab(mode, btn) {
     revTabMode = mode;
     document.querySelectorAll('#revTrendTabs .tab-btn').forEach(b=>b.classList.remove('active'));
     btn.classList.add('active');
     renderRevTrendChart();
 }
-
 function renderRevTrendChart() {
     const empty = document.getElementById('revTrendEmpty');
-    if (!salesRawData.length) { empty.classList.remove('hidden'); return; }
-    empty.classList.add('hidden');
-
+    if (!salesRawData.length){empty.classList.remove('hidden');return;} empty.classList.add('hidden');
     const bucket = {};
     salesRawData.forEach(r => {
-        if (!r.paidOn || !r.paidOn.isValid()) return;
-        const key = revTabMode === 'weekly'
-            ? r.paidOn.startOf('week').format('MM/DD')
-            : r.paidOn.format('MM/DD');
-        bucket[key] = (bucket[key] || 0) + r.sales;
+        if (!r.paidOn?.isValid()) return;
+        const key = revTabMode==='weekly' ? r.paidOn.startOf('week').format('MM/DD') : r.paidOn.format('MM/DD');
+        bucket[key] = (bucket[key]||0)+r.sales;
     });
     const labels = Object.keys(bucket).sort();
-    const values = labels.map(l => bucket[l]);
-
-    if (revTrendChart) revTrendChart.destroy();
-    revTrendChart = new Chart(document.getElementById('revTrendChart'), {
-        type:'bar',
-        data:{
-            labels,
-            datasets:[{
-                label:'売上 (JPY)',
-                data:values,
-                backgroundColor:'rgba(16,185,129,0.6)',
-                borderColor:'#10b981',
-                borderWidth:1,
-                borderRadius:3
-            }]
-        },
-        options:{
-            ...chartDefaults,
-            plugins:{
-                legend:{display:false},
-                tooltip:{callbacks:{label:ctx=>'¥ '+ctx.parsed.y.toLocaleString()}}
-            },
-            scales:{
-                y:{grid:{color:'#1e293b'},ticks:{color:tickColor,callback:v=>'¥'+v.toLocaleString()}},
-                x:{grid:{display:false},ticks:{color:tickColor}}
-            }
-        }
-    });
+    mkChart('revTrendChart','bar',
+        {labels,datasets:[{data:labels.map(l=>bucket[l]),backgroundColor:'rgba(16,185,129,0.6)',borderColor:'#10b981',borderWidth:1,borderRadius:3}]},
+        {plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>'¥'+c.parsed.y.toLocaleString()}}},
+         scales:{y:{grid:{color:gc},ticks:{color:tc,callback:v=>'¥'+v.toLocaleString()}},x:{grid:{display:false},ticks:{color:tc}}}}
+    );
 }
 
-// ===== チャート: 課金セグメント =====
+// =============================================
+// チャート: 課金セグメント
+// =============================================
 function renderSegmentChart() {
     const empty = document.getElementById('segmentEmpty');
-    if (!Object.keys(salesMap).length) { empty.classList.remove('hidden'); return; }
-    empty.classList.add('hidden');
-
-    const seg = {whale:0, dolphin:0, minnow:0};
-    Object.values(salesMap).forEach(v => {
-        if (v >= 10000) seg.whale++;
-        else if (v >= 1000) seg.dolphin++;
-        else seg.minnow++;
+    if (!Object.keys(salesMap).length){empty.classList.remove('hidden');return;} empty.classList.add('hidden');
+    const seg={whale:0,dolphin:0,minnow:0};
+    Object.values(salesMap).forEach(v=>{
+        if(v>=10000)seg.whale++;else if(v>=1000)seg.dolphin++;else seg.minnow++;
     });
-    const total = seg.whale + seg.dolphin + seg.minnow;
-
-    if (segmentChart) segmentChart.destroy();
-    segmentChart = new Chart(document.getElementById('segmentChart'), {
-        type:'doughnut',
-        data:{
-            labels:['🐳 クジラ (≥¥10,000)','🐬 イルカ (¥1,000〜)','🐟 小魚 (〜¥999)'],
-            datasets:[{
-                data:[seg.whale, seg.dolphin, seg.minnow],
-                backgroundColor:['rgba(251,191,36,0.8)','rgba(139,92,246,0.8)','rgba(16,185,129,0.8)'],
-                borderColor:['#fbbf24','#8b5cf6','#10b981'],
-                borderWidth:2,
-                hoverOffset:6
-            }]
-        },
-        options:{
-            responsive:true,
-            maintainAspectRatio:false,
-            cutout:'65%',
-            plugins:{
-                legend:{display:false},
-                tooltip:{callbacks:{label:ctx=>{
-                    const n=ctx.parsed;
-                    return ` ${n}名 (${((n/total)*100).toFixed(1)}%)`;
-                }}}
-            }
-        }
-    });
-
-    // カスタムlegend
-    const leg = document.getElementById('segmentLegend');
-    const items = [
-        {label:'クジラ', count:seg.whale, cls:'badge-whale'},
-        {label:'イルカ', count:seg.dolphin, cls:'badge-dolphin'},
-        {label:'小魚',   count:seg.minnow,  cls:'badge-minnow'}
-    ];
-    leg.innerHTML = items.map(i=>`
-        <div class="flex flex-col items-center gap-1">
-            <span class="${i.cls}">${i.label}</span>
-            <span class="font-bold text-white text-base">${i.count}名</span>
-            <span class="text-slate-500">${total>0?((i.count/total)*100).toFixed(1):0}%</span>
+    const total=seg.whale+seg.dolphin+seg.minnow;
+    mkChart('segmentChart','doughnut',
+        {labels:['🐳クジラ','🐬イルカ','🐟小魚'],
+         datasets:[{data:[seg.whale,seg.dolphin,seg.minnow],
+            backgroundColor:['rgba(251,191,36,0.8)','rgba(139,92,246,0.8)','rgba(16,185,129,0.8)'],
+            borderColor:['#fbbf24','#8b5cf6','#10b981'],borderWidth:2,hoverOffset:5}]},
+        {cutout:'65%',plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>`${c.parsed}名 (${((c.parsed/total)*100).toFixed(1)}%)`}}}}
+    );
+    const cols=['badge-whale','badge-dolphin','badge-minnow'];
+    document.getElementById('segmentLegend').innerHTML=
+        [['クジラ',seg.whale],['イルカ',seg.dolphin],['小魚',seg.minnow]].map((x,i)=>`
+        <div class="flex flex-col items-center gap-0.5">
+            <span class="${cols[i]}">${x[0]}</span>
+            <span class="font-bold text-white">${x[1]}名</span>
+            <span class="text-slate-500">${total>0?((x[1]/total)*100).toFixed(1):0}%</span>
         </div>`).join('');
 }
 
-// ===== チャート: 決済手段別 =====
-const methodLabels = {
-    'PURCHASE_BY_APPLE_PAYMENT':    'Apple Pay',
-    'PURCHASE_BY_GOOGLE_PAYMENT':   'Google Pay',
-    'CREDIT_3D2':                   'クレジットカード',
-    'SOFTBANK_COLLECTIVE_PAYMENT_B':'ソフトバンクまとめて',
-    'D_PAYMENT_CARRIER_WALLET':     'd払い',
-    'BITCASH_SETTLEMENT':           'ビットキャッシュ'
-};
-const methodColors = ['#38bdf8','#34d399','#f59e0b','#a78bfa','#fb7185','#67e8f9'];
-
+// =============================================
+// チャート: 決済手段
+// =============================================
+const ML={PURCHASE_BY_APPLE_PAYMENT:'Apple Pay',PURCHASE_BY_GOOGLE_PAYMENT:'Google Pay',CREDIT_3D2:'クレジットカード',SOFTBANK_COLLECTIVE_PAYMENT_B:'SBまとめて',D_PAYMENT_CARRIER_WALLET:'d払い',BITCASH_SETTLEMENT:'BitCash'};
+const MC=['#38bdf8','#34d399','#f59e0b','#a78bfa','#fb7185','#67e8f9'];
 function renderMethodChart() {
-    const empty = document.getElementById('methodEmpty');
-    if (!salesRawData.length) { empty.classList.remove('hidden'); return; }
-    empty.classList.add('hidden');
-
-    const byMethod = {};
-    salesRawData.forEach(r => {
-        const key = methodLabels[r.method] || r.method || '不明';
-        byMethod[key] = (byMethod[key] || 0) + r.sales;
-    });
-    const sorted = Object.entries(byMethod).sort((a,b)=>b[1]-a[1]);
-    const labels = sorted.map(x=>x[0]);
-    const values = sorted.map(x=>x[1]);
-    const total  = values.reduce((a,b)=>a+b,0);
-
-    if (methodChart) methodChart.destroy();
-    methodChart = new Chart(document.getElementById('methodChart'), {
-        type:'doughnut',
-        data:{
-            labels,
-            datasets:[{
-                data:values,
-                backgroundColor:methodColors.slice(0,labels.length),
-                borderColor:'#1e293b',
-                borderWidth:2,
-                hoverOffset:6
-            }]
-        },
-        options:{
-            responsive:true,
-            maintainAspectRatio:false,
-            cutout:'60%',
-            plugins:{
-                legend:{display:false},
-                tooltip:{callbacks:{label:ctx=>`¥${ctx.parsed.toLocaleString()} (${((ctx.parsed/total)*100).toFixed(1)}%)`}}
-            }
-        }
-    });
-
-    // カスタムlegend
-    const leg = document.getElementById('methodLegend');
-    leg.innerHTML = labels.map((l,i)=>`
-        <div class="flex justify-between items-center py-0.5">
-            <div class="flex items-center gap-2">
-                <span style="background:${methodColors[i]}" class="w-2.5 h-2.5 rounded-full inline-block flex-shrink-0"></span>
-                <span class="text-slate-300 truncate" style="max-width:130px">${l}</span>
-            </div>
-            <span class="text-white font-bold ml-2">¥${values[i].toLocaleString()}</span>
+    const empty=document.getElementById('methodEmpty');
+    if (!salesRawData.length){empty.classList.remove('hidden');return;} empty.classList.add('hidden');
+    const bm={};
+    salesRawData.forEach(r=>{const k=ML[r.method]||r.method||'不明';bm[k]=(bm[k]||0)+r.sales;});
+    const sorted=Object.entries(bm).sort((a,b)=>b[1]-a[1]);
+    const labels=sorted.map(x=>x[0]),values=sorted.map(x=>x[1]),total=values.reduce((a,b)=>a+b,0);
+    mkChart('methodChart','doughnut',
+        {labels,datasets:[{data:values,backgroundColor:MC.slice(0,labels.length),borderColor:'#1e293b',borderWidth:2,hoverOffset:5}]},
+        {cutout:'60%',plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>`¥${c.parsed.toLocaleString()} (${((c.parsed/total)*100).toFixed(1)}%)`}}}}
+    );
+    document.getElementById('methodLegend').innerHTML=labels.map((l,i)=>`
+        <div class="flex justify-between items-center py-0.5 text-xs">
+            <div class="flex items-center gap-1.5"><span style="background:${MC[i]}" class="w-2 h-2 rounded-full flex-shrink-0"></span><span class="text-slate-300 truncate" style="max-width:120px">${l}</span></div>
+            <span class="text-white font-bold">¥${values[i].toLocaleString()}</span>
         </div>`).join('');
 }
 
-// ===== チャート: Top 10 課金者 =====
+// =============================================
+// チャート: Top10課金者
+// =============================================
 function renderTopPayersChart() {
-    const empty = document.getElementById('topPayersEmpty');
-    if (!Object.keys(salesMap).length) { empty.classList.remove('hidden'); return; }
-    empty.classList.add('hidden');
-
-    const sorted = Object.entries(salesMap).sort((a,b)=>b[1]-a[1]).slice(0,10);
-    const labels = sorted.map(x=>x[0]);
-    const values = sorted.map(x=>x[1]);
-
-    if (topPayersChart) topPayersChart.destroy();
-    topPayersChart = new Chart(document.getElementById('topPayersChart'), {
-        type:'bar',
-        data:{
-            labels,
-            datasets:[{
-                label:'累計課金額',
-                data:values,
-                backgroundColor:'rgba(251,191,36,0.7)',
-                borderColor:'#fbbf24',
-                borderWidth:1,
-                borderRadius:3
-            }]
-        },
-        options:{
-            indexAxis:'y',
-            responsive:true,
-            maintainAspectRatio:false,
-            plugins:{
-                legend:{display:false},
-                tooltip:{callbacks:{label:ctx=>'¥'+ctx.parsed.x.toLocaleString()}}
-            },
-            scales:{
-                x:{grid:{color:'#1e293b'},ticks:{color:tickColor,callback:v=>'¥'+v.toLocaleString()}},
-                y:{grid:{display:false},ticks:{color:'#e2e8f0',font:{size:11}}}
-            }
-        }
-    });
+    const empty=document.getElementById('topPayersEmpty');
+    if (!Object.keys(salesMap).length){empty.classList.remove('hidden');return;} empty.classList.add('hidden');
+    const sorted=Object.entries(salesMap).sort((a,b)=>b[1]-a[1]).slice(0,10);
+    mkChart('topPayersChart','bar',
+        {labels:sorted.map(x=>x[0]),datasets:[{data:sorted.map(x=>x[1]),backgroundColor:'rgba(251,191,36,0.7)',borderColor:'#fbbf24',borderWidth:1,borderRadius:3}]},
+        {indexAxis:'y',plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>'¥'+c.parsed.x.toLocaleString()}}},
+         scales:{x:{grid:{color:gc},ticks:{color:tc,callback:v=>'¥'+v.toLocaleString()}},y:{grid:{display:false},ticks:{color:'#e2e8f0',font:{size:11}}}}}
+    );
 }
 
-// ===== テーブル =====
-function renderTable() {
-    const today = dayjs();
-    const sorted = [...currentTableData].sort((a,b)=>{
-        let va = a[sortCol] ?? -Infinity;
-        let vb = b[sortCol] ?? -Infinity;
-        if (sortCol === 'NAME' || sortCol === 'STATUS') {
-            va = String(va).toLowerCase(); vb = String(vb).toLowerCase();
-            return sortDir==='asc' ? va.localeCompare(vb) : vb.localeCompare(va);
-        }
-        return sortDir==='asc' ? va-vb : vb-va;
+// =============================================
+// チャート: リピート課金
+// =============================================
+function renderRepeatChart() {
+    const empty=document.getElementById('repeatEmpty');
+    if (!Object.keys(salesCountMap).length){empty.classList.remove('hidden');return;} empty.classList.add('hidden');
+    const onetime = Object.values(salesCountMap).filter(c=>c===1).length;
+    const repeat  = Object.values(salesCountMap).filter(c=>c>1).length;
+    const total   = onetime+repeat;
+    const repRate = total>0?((repeat/total)*100).toFixed(1):0;
+    const repLtv  = repeat>0 ? Math.floor(
+        Object.entries(salesCountMap).filter(([,c])=>c>1).reduce((s,[u])=>s+(salesMap[u]||0),0)/repeat
+    ) : 0;
+
+    document.getElementById('kpi-onetime').innerText    = `${onetime}名`;
+    document.getElementById('kpi-repeat').innerText     = `${repeat}名`;
+    document.getElementById('kpi-repeat-rate').innerText= `${repRate}%`;
+    document.getElementById('kpi-repeat-ltv').innerText = `¥${repLtv.toLocaleString()}`;
+
+    mkChart('repeatChart','bar',
+        {labels:['1回のみ','2〜3回','4〜9回','10回以上'],datasets:[{
+            data:[
+                onetime,
+                Object.values(salesCountMap).filter(c=>c>=2&&c<=3).length,
+                Object.values(salesCountMap).filter(c=>c>=4&&c<=9).length,
+                Object.values(salesCountMap).filter(c=>c>=10).length
+            ],
+            backgroundColor:['#475569','#0ea5e9','#10b981','#f59e0b'],borderRadius:4
+        }]},
+        {plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>`${c.parsed.y}名`}}},
+         scales:{y:{grid:{color:gc},ticks:{color:tc}},x:{grid:{display:false},ticks:{color:tc}}}}
+    );
+    checkAlerts();
+}
+
+// =============================================
+// チャート: パック別売上
+// =============================================
+function renderPackChart() {
+    const empty=document.getElementById('packEmpty');
+    if (!salesRawData.length){empty.classList.remove('hidden');return;} empty.classList.add('hidden');
+    const bp={};
+    salesRawData.forEach(r=>{
+        // パック名が長いJSONの場合は短縮
+        let p=r.pack||'不明';
+        if(p.startsWith('[{')) p='カスタムバンドル';
+        bp[p]=(bp[p]||0)+r.sales;
+    });
+    const sorted=Object.entries(bp).sort((a,b)=>b[1]-a[1]).slice(0,12);
+    const total=sorted.reduce((s,x)=>s+x[1],0);
+    const colors=['#38bdf8','#34d399','#f59e0b','#a78bfa','#fb7185','#67e8f9','#fde68a','#bbf7d0','#c4b5fd','#fca5a5','#7dd3fc','#86efac'];
+    mkChart('packChart','bar',
+        {labels:sorted.map(x=>x[0]),datasets:[{
+            data:sorted.map(x=>x[1]),
+            backgroundColor:colors.slice(0,sorted.length),
+            borderRadius:3
+        }]},
+        {indexAxis:'y',
+         plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>`¥${c.parsed.x.toLocaleString()} (${((c.parsed.x/total)*100).toFixed(1)}%)`}}},
+         scales:{x:{grid:{color:gc},ticks:{color:tc,callback:v=>'¥'+v.toLocaleString()}},y:{grid:{display:false},ticks:{color:'#e2e8f0',font:{size:11}}}}}
+    );
+}
+
+// =============================================
+// ヒートマップ
+// =============================================
+function setHeatTab(mode, btn) {
+    heatMode=mode;
+    document.querySelectorAll('#heatTabs .tab-btn').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    renderHeatmap();
+}
+function renderHeatmap() {
+    const container=document.getElementById('heatmapContainer');
+    const empty=document.getElementById('heatmapEmpty');
+    if (!salesRawData.length){empty.classList.remove('hidden');container.innerHTML='<p id="heatmapEmpty" class="text-center text-slate-500 text-sm py-8">売上CSVを読み込むと表示されます</p>';return;}
+    empty.classList.add('hidden');
+
+    // [曜日0-6(月=0)][時間0-23]
+    const grid=Array.from({length:7},()=>new Array(24).fill(0));
+    salesRawData.forEach(r=>{
+        if (!r.paidOn?.isValid()) return;
+        const dow=(r.paidOn.isoWeekday()-1); // 0=Mon
+        const h  = r.paidOn.hour();
+        grid[dow][h] += heatMode==='amount' ? r.sales : 1;
     });
 
-    const body = document.getElementById('userTableBody');
-    body.innerHTML = '';
-    document.getElementById('listCount').innerText = `該当 ${sorted.length}名 中、上位100名を表示`;
+    const maxVal=Math.max(...grid.flat(),1);
+    const days=['月','火','水','木','金','土','日'];
+    const dayColors=['月','火','水','木','金','土','日'];
 
-    sorted.slice(0,100).forEach(d => {
-        const statusColor = d.STATUS==='ACTIVE' ? 'text-emerald-400' : 'text-red-400';
-        const ltvDisplay  = d.ltv > 0 ? `¥ ${d.ltv.toLocaleString()}` : '-';
+    let html = '<div class="heatmap-grid" style="grid-template-columns: 34px repeat(24, minmax(0,1fr)); gap:2px;">';
+    // 時間ラベル行
+    html += '<div></div>';
+    for(let h=0;h<24;h++) html+=`<div class="heatmap-hlabel">${h}</div>`;
+    // データ行
+    for(let d=0;d<7;d++) {
+        html += `<div class="heatmap-label">${days[d]}</div>`;
+        for(let h=0;h<24;h++) {
+            const v=grid[d][h];
+            const ratio=v/maxVal;
+            const alpha=Math.max(0.06, ratio);
+            const r=Math.floor(56+ratio*120);
+            const g=Math.floor(189+ratio*20);
+            const b=Math.floor(248);
+            const bg = v===0 ? '#1e293b' : `rgba(${r},${g},${b},${alpha.toFixed(2)})`;
+            const tip = heatMode==='amount' ? `¥${v.toLocaleString()}` : `${v}件`;
+            html+=`<div class="heatmap-cell" style="background:${bg}" title="${days[d]}曜 ${h}時: ${tip}"></div>`;
+        }
+    }
+    html += '</div>';
+    container.innerHTML = html;
+}
 
-        // セグメントバッジ
-        let segBadge = '';
-        if      (d.ltv >= 10000) segBadge = '<span class="badge-whale ml-1">🐳</span>';
-        else if (d.ltv >= 1000)  segBadge = '<span class="badge-dolphin ml-1">🐬</span>';
-        else if (d.ltv > 0)      segBadge = '<span class="badge-minnow ml-1">🐟</span>';
+// =============================================
+// チャート: コホート分析
+// =============================================
+function renderCohortChart() {
+    const empty=document.getElementById('cohortEmpty');
+    if (!allData.length){empty.classList.remove('hidden');return;} empty.classList.add('hidden');
 
-        // リスクバッジ
-        let riskBadge = '';
-        const diff = d.days;
-        if (d.lvNum <= 10 && diff >= 0) {
-            if      (diff >= 20) riskBadge = '<span class="bg-red-900/50 text-red-300 border border-red-700 px-2 py-0.5 rounded text-xs ml-1">離脱状態</span>';
-            else if (diff >= 10) riskBadge = '<span class="bg-yellow-900/50 text-yellow-300 border border-yellow-700 px-2 py-0.5 rounded text-xs ml-1">リスク有</span>';
+    const cohorts={};
+    allData.forEach(d=>{
+        if (!d.date?.isValid()) return;
+        const wk=d.date.startOf('isoWeek').format('MM/DD');
+        if (!cohorts[wk]) cohorts[wk]={total:0,above10:0};
+        cohorts[wk].total++;
+        if (d.lvNum>10) cohorts[wk].above10++;
+    });
+    const labels=Object.keys(cohorts).sort().slice(-12); // 直近12週
+    const rates=labels.map(l=>cohorts[l].total>0?((cohorts[l].above10/cohorts[l].total)*100).toFixed(1):0);
+
+    mkChart('cohortChart','line',
+        {labels,datasets:[{
+            label:'Lv10超え率',data:rates,
+            borderColor:'#c084fc',backgroundColor:'rgba(192,132,252,0.1)',
+            fill:true,tension:0.3,pointRadius:4,pointBackgroundColor:'#c084fc'
+        }]},
+        {plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>`${c.parsed.y}%`}}},
+         scales:{y:{grid:{color:gc},ticks:{color:tc,callback:v=>v+'%'},min:0,max:100},x:{grid:{display:false},ticks:{color:tc}}}}
+    );
+}
+
+// =============================================
+// チャート: レベル速度
+// =============================================
+function renderSpeedChart(data) {
+    const empty=document.getElementById('speedEmpty');
+    const today=dayjs();
+    const speeds=data
+        .filter(d=>d.lvNum>0&&d.date?.isValid())
+        .map(d=>today.diff(d.date,'day')/d.lvNum);
+
+    if (!speeds.length){empty.classList.remove('hidden');return;} empty.classList.add('hidden');
+
+    const fast=speeds.filter(s=>s<=1).length;
+    const mid =speeds.filter(s=>s>1&&s<=7).length;
+    const slow=speeds.filter(s=>s>7).length;
+
+    document.getElementById('kpi-speed-fast').innerText=`${fast}名`;
+    document.getElementById('kpi-speed-mid').innerText =`${mid}名`;
+    document.getElementById('kpi-speed-slow').innerText=`${slow}名`;
+
+    // ヒストグラム bins: 0-0.5, 0.5-1, 1-2, 2-5, 5-10, 10-30, 30+
+    const bins=[0,0,0,0,0,0,0];
+    const edges=[0,0.5,1,2,5,10,30,Infinity];
+    speeds.forEach(s=>{for(let i=0;i<7;i++){if(s<edges[i+1]){bins[i]++;break;}}});
+
+    mkChart('speedChart','bar',
+        {labels:['〜0.5日','0.5〜1日','1〜2日','2〜5日','5〜10日','10〜30日','30日〜'],
+         datasets:[{data:bins,backgroundColor:['#10b981','#34d399','#38bdf8','#0ea5e9','#64748b','#475569','#334155'],borderRadius:3}]},
+        {plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>`${c.parsed.y}名`}}},
+         scales:{y:{grid:{color:gc},ticks:{color:tc}},x:{grid:{display:false},ticks:{color:tc,font:{size:10}}}}}
+    );
+}
+
+// =============================================
+// チャート: STATUS内訳
+// =============================================
+function renderStatusChart() {
+    const empty=document.getElementById('statusEmpty');
+    if (!allData.length){empty.classList.remove('hidden');return;} empty.classList.add('hidden');
+    const sc={};
+    allData.forEach(d=>{const s=d.STATUS||'UNKNOWN';sc[s]=(sc[s]||0)+1;});
+    const sColors={ACTIVE:'#10b981',BANNED:'#ef4444',INACTIVE:'#64748b',UNKNOWN:'#475569'};
+    const labels=Object.keys(sc),values=Object.values(sc),total=values.reduce((a,b)=>a+b,0);
+
+    const kpiArea=document.getElementById('statusKpiArea');
+    kpiArea.innerHTML=labels.map(l=>`
+        <div class="bg-slate-800/60 rounded-lg p-2 text-center">
+            <p class="text-xs font-bold" style="color:${sColors[l]||'#94a3b8'}">${l}</p>
+            <p class="text-xl font-bold text-white mt-0.5">${sc[l].toLocaleString()}名</p>
+            <p class="text-xs text-slate-500">${((sc[l]/total)*100).toFixed(1)}%</p>
+        </div>`).join('');
+
+    mkChart('statusChart','doughnut',
+        {labels,datasets:[{data:values,
+            backgroundColor:labels.map(l=>sColors[l]||'#475569'),
+            borderColor:'#1e293b',borderWidth:2,hoverOffset:5}]},
+        {cutout:'60%',plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>`${c.parsed}名 (${((c.parsed/total)*100).toFixed(1)}%)`}}}}
+    );
+}
+
+// =============================================
+// チャート: 初回課金日数分布
+// =============================================
+function renderConvDaysChart() {
+    const empty=document.getElementById('convDaysEmpty');
+    if (!allData.length||!Object.keys(firstPurchaseMap).length){empty.classList.remove('hidden');return;} empty.classList.add('hidden');
+
+    const daysArr=[];
+    allData.forEach(d=>{
+        if (!d.date?.isValid()) return;
+        const k=normalizeName(d.NAME);
+        if (!firstPurchaseMap[k]) return;
+        const diff=firstPurchaseMap[k].diff(d.date,'day');
+        if (diff>=0) daysArr.push(diff);
+    });
+    if (!daysArr.length){empty.classList.remove('hidden');return;}
+
+    const fast=daysArr.filter(x=>x<=1).length;
+    const mid =daysArr.filter(x=>x>=2&&x<=7).length;
+    const slow=daysArr.filter(x=>x>7).length;
+
+    document.getElementById('kpi-conv-fast').innerText=`${fast}名`;
+    document.getElementById('kpi-conv-mid').innerText =`${mid}名`;
+    document.getElementById('kpi-conv-slow').innerText=`${slow}名`;
+
+    const bins=[0,0,0,0,0,0];
+    daysArr.forEach(x=>{
+        if(x===0)bins[0]++;
+        else if(x===1)bins[1]++;
+        else if(x<=3) bins[2]++;
+        else if(x<=7) bins[3]++;
+        else if(x<=14)bins[4]++;
+        else           bins[5]++;
+    });
+
+    mkChart('convDaysChart','bar',
+        {labels:['即日(0日)','1日後','2〜3日','4〜7日','8〜14日','15日以上'],
+         datasets:[{data:bins,backgroundColor:['#10b981','#34d399','#38bdf8','#f59e0b','#a78bfa','#64748b'],borderRadius:3}]},
+        {plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>`${c.parsed.y}名`}}},
+         scales:{y:{grid:{color:gc},ticks:{color:tc}},x:{grid:{display:false},ticks:{color:tc,font:{size:10}}}}}
+    );
+}
+
+// =============================================
+// テーブル
+// =============================================
+function renderTable() {
+    const today=dayjs();
+    let data = searchQuery
+        ? currentTableData.filter(d=>(d.NAME||'').toLowerCase().includes(searchQuery))
+        : currentTableData;
+
+    const sorted=[...data].sort((a,b)=>{
+        let va=a[sortCol]??-Infinity, vb=b[sortCol]??-Infinity;
+        if(sortCol==='NAME'||sortCol==='STATUS'){va=String(va).toLowerCase();vb=String(vb).toLowerCase();return sortDir==='asc'?va.localeCompare(vb):vb.localeCompare(va);}
+        return sortDir==='asc'?va-vb:vb-va;
+    });
+
+    const body=document.getElementById('userTableBody');
+    body.innerHTML='';
+    document.getElementById('listCount').innerText=`該当 ${sorted.length}名 中、上位100名を表示`;
+
+    sorted.slice(0,100).forEach(d=>{
+        const sc=d.STATUS==='ACTIVE'?'text-emerald-400':'text-red-400';
+        const ltv=d.ltv>0?`¥${d.ltv.toLocaleString()}`:'-';
+        let segB='';
+        if(d.ltv>=10000)segB='<span class="badge-whale ml-1">🐳</span>';
+        else if(d.ltv>=1000)segB='<span class="badge-dolphin ml-1">🐬</span>';
+        else if(d.ltv>0)segB='<span class="badge-minnow ml-1">🐟</span>';
+
+        let rkB='';
+        if(d.lvNum<=10&&d.days>=0){
+            if(d.days>=20)rkB='<span class="bg-red-900/50 text-red-300 border border-red-700 px-2 py-0.5 rounded text-xs ml-1">離脱状態</span>';
+            else if(d.days>=10)rkB='<span class="bg-yellow-900/50 text-yellow-300 border border-yellow-700 px-2 py-0.5 rounded text-xs ml-1">リスク有</span>';
         }
 
-        const daysText = diff >= 0 ? `${diff}日` : '-';
+        const pCount=d.purchaseCount>0?`<span class="text-amber-400 font-bold">${d.purchaseCount}回</span>`:'<span class="text-slate-600">-</span>';
 
-        body.insertAdjacentHTML('beforeend', `
+        body.insertAdjacentHTML('beforeend',`
             <tr class="hover:bg-slate-700/40 transition-colors">
-                <td class="px-5 py-3 font-medium">${d.NAME||'-'} ${riskBadge}</td>
-                <td class="px-5 py-3 font-bold text-sky-400">Lv. ${d.lvNum}</td>
-                <td class="px-5 py-3 font-bold text-emerald-400">${ltvDisplay} ${segBadge}</td>
-                <td class="px-5 py-3 font-bold ${statusColor}">${d.STATUS||'-'}</td>
-                <td class="px-5 py-3 text-slate-400">${daysText}</td>
+                <td class="px-5 py-2.5 font-medium">${d.NAME||'-'} ${rkB}</td>
+                <td class="px-5 py-2.5 font-bold text-sky-400">Lv.${d.lvNum}</td>
+                <td class="px-5 py-2.5 font-bold text-emerald-400">${ltv} ${segB}</td>
+                <td class="px-5 py-2.5 font-bold ${sc}">${d.STATUS||'-'}</td>
+                <td class="px-5 py-2.5 text-slate-400">${d.days>=0?d.days+'日':'-'}</td>
+                <td class="px-5 py-2.5">${pCount}</td>
             </tr>`);
     });
 }
 
 function sortTable(col, th) {
-    if (sortCol === col) {
-        sortDir = sortDir === 'asc' ? 'desc' : 'asc';
-    } else {
-        sortCol = col;
-        sortDir = col === 'NAME' || col === 'STATUS' ? 'asc' : 'desc';
-    }
-    document.querySelectorAll('th.sortable').forEach(t => t.classList.remove('asc','desc'));
+    sortDir = sortCol===col ? (sortDir==='asc'?'desc':'asc') : (col==='NAME'||col==='STATUS'?'asc':'desc');
+    sortCol = col;
+    document.querySelectorAll('th.sortable').forEach(t=>t.classList.remove('asc','desc'));
     th.classList.add(sortDir);
     renderTable();
 }
 
-// ===== CSVエクスポート =====
+// =============================================
+// CSVエクスポート
+// =============================================
 function exportCSV() {
-    if (!currentTableData.length) { alert('データがありません'); return; }
-    const today = dayjs();
-    const sorted = [...currentTableData].sort((a,b) => {
-        const va = a[sortCol] ?? -Infinity;
-        const vb = b[sortCol] ?? -Infinity;
-        if (sortCol === 'NAME' || sortCol === 'STATUS') return sortDir==='asc' ? String(va).localeCompare(String(vb)) : String(vb).localeCompare(String(va));
-        return sortDir==='asc' ? va-vb : vb-va;
+    if (!currentTableData.length){alert('データがありません');return;}
+    const today=dayjs();
+    let data=searchQuery?currentTableData.filter(d=>(d.NAME||'').toLowerCase().includes(searchQuery)):currentTableData;
+    const sorted=[...data].sort((a,b)=>{
+        const va=a[sortCol]??-Infinity,vb=b[sortCol]??-Infinity;
+        if(sortCol==='NAME'||sortCol==='STATUS')return sortDir==='asc'?String(va).localeCompare(String(vb)):String(vb).localeCompare(String(va));
+        return sortDir==='asc'?va-vb:vb-va;
     });
-
-    const header = ['NAME','LEVEL','累計課金額(JPY)','セグメント','STATUS','経過日数','リスク'];
-    const rows = sorted.map(d => {
-        const diff = d.days;
-        const seg  = d.ltv >= 10000 ? 'クジラ' : d.ltv >= 1000 ? 'イルカ' : d.ltv > 0 ? '小魚' : '-';
-        let risk = '-';
-        if (d.lvNum <= 10 && diff >= 20) risk = '離脱状態';
-        else if (d.lvNum <= 10 && diff >= 10) risk = 'リスク有';
-        return [d.NAME||'', d.lvNum, d.ltv, seg, d.STATUS||'', diff>=0?diff:'', risk].join(',');
+    const rows=sorted.map(d=>{
+        const seg=d.ltv>=10000?'クジラ':d.ltv>=1000?'イルカ':d.ltv>0?'小魚':'-';
+        let risk='-';
+        if(d.lvNum<=10&&d.days>=20)risk='離脱状態';
+        else if(d.lvNum<=10&&d.days>=10)risk='リスク有';
+        return [d.NAME||'',d.lvNum,d.ltv,seg,d.STATUS||'',d.days>=0?d.days:'',d.purchaseCount||0,risk].join(',');
     });
-
-    const bom = '\uFEFF';
-    const csv = bom + [header.join(','), ...rows].join('\n');
-    const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
-    const url  = URL.createObjectURL(blob);
-    const a    = Object.assign(document.createElement('a'), {href:url, download:`users_export_${today.format('YYYYMMDD')}.csv`});
+    const csv='\uFEFF'+['NAME,LEVEL,累計課金額,セグメント,STATUS,経過日数,課金回数,リスク',...rows].join('\n');
+    const a=Object.assign(document.createElement('a'),{href:URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8;'})),download:`users_${today.format('YYYYMMDD')}.csv`});
     a.click();
-    URL.revokeObjectURL(url);
+}
+
+// =============================================
+// チャートヘルパー
+// =============================================
+function mkChart(id, type, data, options) {
+    if (charts[id]) charts[id].destroy();
+    charts[id] = new Chart(document.getElementById(id), {
+        type, data,
+        options: { responsive:true, maintainAspectRatio:false, animation:{duration:400}, ...options }
+    });
 }
 </script>
 </body>
