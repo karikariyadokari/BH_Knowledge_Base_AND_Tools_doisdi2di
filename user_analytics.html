@@ -128,7 +128,7 @@
         <p id="kpi-stickiness" class="text-3xl font-bold mt-1 text-white">0.0%</p>
     </div>
     <div class="card p-5 border-t-2 border-amber-500">
-        <p class="text-slate-400 text-xs font-bold">課金ユーザー率 (PUR)※Lv1は除外</p>
+        <p class="text-slate-400 text-xs font-bold">課金ユーザー率 (PUR)※Lv1かつ無課金者は除外</p>
         <p id="kpi-pur" class="text-3xl font-bold mt-1 text-amber-400">0.0%</p>
     </div>
     <div class="card p-5 border-t-2 border-emerald-500">
@@ -792,7 +792,7 @@ function updateRevenueMetrics() {
     const rev = parseFloat(document.getElementById('inputRevenue').value)||0;
     const tot = allData.length||0;
     let paying = 0;
-    if (tot > 0) paying = allData.filter(d => d.lvNum >= 2 && (salesMap[normalizeName(d.NAME)] || 0) > 0).length;
+    if (tot > 0) paying = allData.filter(d => (salesMap[normalizeName(d.NAME)] || 0) > 0).length;
     const totLv2 = allData.filter(d => d.lvNum >= 2).length;
     const pur  = totLv2>0  ? ((paying/totLv2)*100).toFixed(1) : 0;
     const dates = allData.map(d=>d.date).filter(d=>d&&d.isValid());
