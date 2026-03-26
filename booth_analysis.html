@@ -408,6 +408,7 @@ let lastStats    = {};   // ★ renderAll が生成した boothStats を保持 �
 let serverVersion = 0;   // 楽観的ロック用: Driveから取得した最新バージョン番号
 const openBooths = new Set();
 const charts     = {};
+let autoSyncTimer = null; // Drive自動同期の遅延タイマー
 
 // ============================================================
 // ユーティリティ
@@ -1166,7 +1167,7 @@ function saveCurrentAsTemplate() {
     renderFeeTemplateChips();
     // ドライブ自動同期
     const url = localStorage.getItem(GAS_URL_KEY)||'';
-    if (url) uploadToDrive(true);
+    if (url) scheduleAutoSync();
 }
 
 function applyTemplate(name) {
@@ -1193,7 +1194,7 @@ function deleteTemplate(name) {
     renderTemplateList();
     renderFeeTemplateChips();
     const url = localStorage.getItem(GAS_URL_KEY)||'';
-    if (url) uploadToDrive(true);
+    if (url) scheduleAutoSync();
 }
 
 function resetFees() { feeSettings={}; renderBoothFeeList(); }
@@ -1205,7 +1206,7 @@ function applyFees() { toggleFeePanel(); renderAll(); }
 function persistAndRender(autoSync=false) {
     try { localStorage.setItem(DB_KEY, JSON.stringify({db, feeSettings, feeTemplates, defaultFee: parseInt(document.getElementById('defaultFee')?.value)||100})); } catch(_) {}
     renderAll();
-    if (autoSync) uploadToDrive(true);
+    if (autoSync) scheduleAutoSync(); // ここを変更
 }
 
 function renderEmpty() {
@@ -1267,6 +1268,22 @@ function toggleManual()    { document.getElementById('manualModal').classList.to
 // ============================================================
 // GAS 同期
 // ============================================================
+
+function scheduleAutoSync() {
+    const url = localStorage.getItem(GAS_URL_KEY) || '';
+    if (!url) return;
+
+    // 待機中のUI表示（オレンジ点滅でユーザーに同期準備中であることを伝える）
+    const dot = document.getElementById('syncDot');
+    if (dot) dot.className = 'sync-dot loading';
+
+    // 既存のタイマーをキャンセルして、新しくカウントし直す
+    clearTimeout(autoSyncTimer);
+    autoSyncTimer = setTimeout(() => {
+        uploadToDrive(true);
+    }, 3000); // 3秒間操作がなければ同期を実行（調整可能）
+}
+
 function getGasUrl() {
     const url=document.getElementById('gasUrl').value.trim();
     if(url)localStorage.setItem(GAS_URL_KEY,url);
