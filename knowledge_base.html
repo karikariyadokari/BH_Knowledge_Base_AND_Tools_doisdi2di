@@ -209,6 +209,7 @@
         <li onclick="switchTab(event, 'booth-log')">📝 ブースログ設定</li>
         <li onclick="switchTab(event, 'user-analytics')">👤 ユーザー動向分析ツール</li>
         <li onclick="switchTab(event, 'booth-analysis')">📊 ブース稼働分析ツール</li>
+        <li onclick="switchTab(event, 'play_count_tool')">🎮 プレイ回数カウンターツール</li>
     </ul>
 </div>
 
@@ -674,6 +675,68 @@
         </div>
     </div>
 
+     <div id="play_count_tool" class="kb-section">
+        <h1>プレイ回数カウンターツールの使い方</h1>
+        <p>「プレイ回数カウンターツール」は、ブースから出力されたログファイルを読み込み、補填対応時に必要な必要なプレイ回数の集計を自動化するツールです。</p>
+
+        <h2>① 補填対象ユーザーのPlayer_IDもしくはPlayer_Nameを入力</h2>
+        <p><span class="img-ref">【画像1】</span>の赤く囲まれた箇所のテキストをどちらかをコピーしてください。</p>
+    
+        <div class="img-box">
+            <img src="プレイ回数集計_画像1.jpg" alt="プレイ回数カウンターツール画像1">
+            <span class="img-caption">【画像1】</span>
+        </div>
+
+        <p>ツールを開き、検索モードに対応したIDもしくはプレイヤー名をペーストしてください。</p>
+
+     </div>
+
+        <h2>② ログデータのダウンロード</h2>
+        <div class="step-box">
+            <p><strong>マシンマップからブースのHISTORY LOGを開く:</strong><br>
+            <span class="img-ref">【画像2】</span>の赤く囲まれた箇所（Date）をクリックして直近1日間を指定してください。</p>
+        </div>
+        <div class="alert-note">
+           全期間分をダウンロードした場合、ファイルサイズが大きくなりダウンロード時間が長くなるためできるだけ指定しましょう。
+        </div>
+
+        <div class="img-box">
+            <img src="プレイ回数集計_画像2.jpg" alt="プレイ回数カウンターツール画像2">
+            <span class="img-caption">【画像2】</span>
+        </div>
+
+        <p>期間指定が完了したのち、<span class="img-ref">【画像2】</span>の赤く囲まれた箇所（CSV Download）をクリックしてダウンロードします。</p>
+
+        <h2>③ ログデータの読み込み</h2>
+        <div class="step-box">
+            <p><strong>CSVインポート:</strong><br>
+            中央の点線枠「CSVファイルをドロップ」エリアに、対象のログファイルをドラッグ＆ドロップしてください。</p>
+        </div>
+
+        <h2>④ プレイ開始時刻を入力</h2>
+        <p>ツール内のプレイ開始時刻（JST）欄に<span class="img-ref">【画像3】</span>の赤く囲まれた箇所（列名:START TIME）から該当プレイ開始時刻をコピペしてください。</p>
+        
+        <div class="img-box">
+            <img src="プレイ回数集計_画像3.jpg" alt="プレイ回数カウンターツール画像3">
+            <span class="img-caption">【画像3】</span>
+        </div>
+        
+        <div class="alert-warning">
+            【注意】開始時刻を間違えて入力した場合、正しい結果が得られないので注意してください。
+        </div>
+
+        <h2>⑤ 時刻のズレ許容幅（秒）</h2>
+        <p>管理パネル上のデータとCSVでは秒単位でのズレがあるため、デフォルトでは30秒の幅を設けています。</p>   
+        
+        <h2>⑥ 結果の表示</h2>
+        <p><span class="img-ref">【画像4】</span>の赤く囲まれた箇所「集計する」ボタンをクリックすると補填に必要なプレイ回数が表示されます。</p>
+
+        <div class="img-box">
+            <img src="プレイ回数集計_画像4.jpg" alt="プレイ回数カウンターツール画像4">
+            <span class="img-caption">【画像4】</span>
+        </div>
+
+    </div>
 
 </div>
 
