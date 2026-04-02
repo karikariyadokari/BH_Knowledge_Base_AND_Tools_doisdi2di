@@ -112,10 +112,11 @@
                 <span class="text-xs font-bold text-emerald-300 ml-2">2. 売上CSV:</span>
                 <input type="file" id="salesFile" accept=".csv" class="text-sm text-slate-300 file:mr-4 file:py-1 file:px-3 file:rounded-md file:border-0 file:bg-emerald-600 file:text-white hover:file:bg-emerald-500 cursor-pointer">
             </div>
-            <div class="bg-violet-900/50 p-1.5 rounded-md border border-violet-700 flex items-center gap-2">
-                <span class="text-xs font-bold text-violet-300 ml-2">3. ブースログCSV (複数可):</span>
+            <div class="bg-violet-900/50 p-1.5 rounded-md border border-violet-700 flex items-center gap-2 flex-wrap">
+                <span class="text-xs font-bold text-violet-300 ml-2">3. ブースログCSV:</span>
                 <input type="file" id="boothFiles" accept=".csv" multiple class="text-sm text-slate-300 file:mr-4 file:py-1 file:px-3 file:rounded-md file:border-0 file:bg-violet-600 file:text-white hover:file:bg-violet-500 cursor-pointer">
                 <span id="boothStatus" class="text-xs text-violet-400 font-bold hidden"></span>
+                <button onclick="resetBoothData()" class="text-xs text-slate-400 hover:text-red-400 border border-slate-600 hover:border-red-500 px-2 py-1 rounded transition-colors" title="読み込み済みのブースデータをリセット">🗑 リセット</button>
             </div>
         </div>
     </div>
@@ -522,6 +523,35 @@
 
             <!-- ステータスメッセージ -->
             <div id="syncStatusMsg" class="hidden rounded-lg px-4 py-2.5 text-xs font-semibold flex items-center gap-2"></div>
+
+            <!-- ブースログ小分けアップロード -->
+            <div class="bg-violet-900/20 border border-violet-700/50 rounded-lg p-3 space-y-2">
+                <p class="text-xs font-bold text-violet-300">🗂 ブースログ 小分け追記アップロード</p>
+                <p class="text-xs text-slate-400">数台ずつ選択して「Driveへ追記」を繰り返してください。Drive上の台帳に積み上がります。</p>
+                <div class="flex items-center gap-2 flex-wrap">
+                    <input type="file" id="boothAppendFiles" accept=".csv" multiple
+                        class="text-xs text-slate-300 file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:bg-violet-700 file:text-white hover:file:bg-violet-600 cursor-pointer">
+                    <span id="boothAppendStatus" class="text-xs text-violet-400 font-bold"></span>
+                </div>
+                <div class="flex gap-2 flex-wrap">
+                    <button onclick="appendBoothToDrive()" class="bg-violet-700 hover:bg-violet-600 text-white font-bold py-1.5 px-3 rounded text-xs flex items-center gap-1">
+                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                        Driveへ追記
+                    </button>
+                    <button onclick="clearBoothOnDrive()" class="bg-slate-700 hover:bg-red-800 text-slate-300 hover:text-white font-bold py-1.5 px-3 rounded text-xs flex items-center gap-1 border border-slate-600 hover:border-red-600 transition-colors">
+                        🗑 Drive上のブース台帳をリセット
+                    </button>
+                </div>
+                <div id="boothProgressBar" class="hidden">
+                    <div class="flex justify-between text-xs text-slate-400 mb-1">
+                        <span id="boothProgressLabel">アップロード中...</span>
+                        <span id="boothProgressPct">0%</span>
+                    </div>
+                    <div class="w-full bg-slate-700 rounded-full h-1.5">
+                        <div id="boothProgressFill" class="bg-violet-500 h-1.5 rounded-full transition-all" style="width:0%"></div>
+                    </div>
+                </div>
+            </div>
         </div>
 
         <div class="p-4 border-t border-slate-700 flex flex-wrap justify-between items-center gap-2">
@@ -1445,7 +1475,7 @@ const GAS_AUTO_KEY = 'gas_dashboard_auto';
 // ローカルで読み込み済みのCSV生テキストを保持
 let localUserCsv  = null;
 let localSalesCsv = null;
-let localBoothCsv = null;   // 全台分をヘッダー1行＋データ行でマージしたCSV文字列
+let boothMacCount = 0;   // ローカルで読み込んだブース台数（lastPlayMapに蓄積）
 
 // パネル開閉
 function toggleSyncPanel() {
@@ -1469,14 +1499,14 @@ function setAutoToggle(on) {
 
 // ステップ表示更新
 function updateFlowSteps() {
-    const hasLocal = localUserCsv || localSalesCsv || localBoothCsv;
+    const hasLocal = localUserCsv || localSalesCsv || boothMacCount > 0;
     const s1 = document.getElementById('stepStatus1');
     const s2 = document.getElementById('stepStatus2');
     if (s1) {
         const parts = [];
-        if (localUserCsv)  parts.push('ユーザー');
-        if (localSalesCsv) parts.push('売上');
-        if (localBoothCsv) parts.push('ブース');
+        if (localUserCsv)      parts.push('ユーザー');
+        if (localSalesCsv)     parts.push('売上');
+        if (boothMacCount > 0) parts.push(`ブース${boothMacCount}台`);
         s1.innerText  = hasLocal ? `✅ 読み込み済み (${parts.join('・')})` : '⏳ 未読み込み';
         s1.className  = 'mt-1 text-xs font-bold ' + (hasLocal ? 'text-emerald-400' : 'text-slate-500');
     }
@@ -1522,8 +1552,8 @@ async function uploadToDrive() {
     const url = getGasUrl();
     if (!url) return;
 
-    if (!localUserCsv && !localSalesCsv && !localBoothCsv) {
-        setSyncStatus('error', '⚠️ 先にローカルCSVを読み込んでください（画面右上のファイル選択）。');
+    if (!localUserCsv && !localSalesCsv) {
+        setSyncStatus('error', '⚠️ 先にユーザーCSV・売上CSVを読み込んでください。<br><span style="opacity:0.7;font-weight:400">ブースログは下の「小分け追記」から別途アップロードしてください。</span>');
         return;
     }
 
@@ -1533,12 +1563,10 @@ async function uploadToDrive() {
         const body = { type: 'both' };
         if (localUserCsv)  body.user  = localUserCsv;
         if (localSalesCsv) body.sales = localSalesCsv;
-        if (localBoothCsv) body.booth = localBoothCsv;
 
         const res  = await fetch(url, {
             method:  'POST',
             body:    JSON.stringify(body),
-            // GAS は Content-Type: text/plain で受け取る必要がある
             headers: { 'Content-Type': 'text/plain' },
             redirect:'follow'
         });
@@ -1547,10 +1575,9 @@ async function uploadToDrive() {
 
         const now = dayjs().format('YYYY-MM-DD HH:mm:ss');
         document.getElementById('syncLastFetched').innerText = `最終保存: ${now}`;
-        const saved = [localUserCsv&&'ユーザー', localSalesCsv&&'売上', localBoothCsv&&'ブースログ'].filter(Boolean).join('・');
-        setSyncStatus('ok', `☁️ Driveへの保存完了（${saved}）— ${now}<br><span style="font-weight:400;opacity:0.8">他のPCで「Driveから取得」を押すと同じデータが読み込まれます。</span>`);
+        const saved = [localUserCsv&&'ユーザー', localSalesCsv&&'売上'].filter(Boolean).join('・');
+        setSyncStatus('ok', `☁️ Driveへの保存完了（${saved}）— ${now}<br><span style="font-weight:400;opacity:0.8">ブースログは下の「小分け追記」でアップロードしてください。</span>`);
 
-        // ステップ②を更新
         const s2 = document.getElementById('stepStatus2');
         if (s2) { s2.innerText = '✅ 保存済み'; s2.className = 'mt-1 text-xs font-bold text-emerald-400'; }
         const s3 = document.getElementById('stepStatus3');
@@ -1592,15 +1619,31 @@ async function syncFromDrive() {
             loaded.push('売上');
         }
         if (booth) {
-            localBoothCsv = booth;
-            lastPlayMap = {};
-            const parsed = Papa.parse(booth.trim(), { header: true, skipEmptyLines: true });
-            processMachineLog(parsed.data);
-            const cnt = Object.keys(lastPlayMap).length;
-            document.getElementById('boothStatus').classList.remove('hidden');
-            document.getElementById('boothStatus').textContent = `✓ Drive同期済み (${cnt}名突合)`;
-            loaded.push('ブースログ');
-            applyMachineLogToAllData();
+            // booth は lastPlayMap の JSON文字列 {"player_id": "ISO日時", ...}
+            // V4以前の古いCSVが残っている場合は警告して無視
+            const trimmed = booth.trim();
+            if (trimmed.startsWith('{')) {
+                try {
+                    const map = JSON.parse(trimmed);
+                    lastPlayMap = {};
+                    Object.entries(map).forEach(([pid, iso]) => {
+                        const t = dayjs(iso);
+                        if (t.isValid()) lastPlayMap[pid] = t;
+                    });
+                    const cnt = Object.keys(lastPlayMap).length;
+                    boothMacCount = cnt;
+                    const statusEl = document.getElementById('boothStatus');
+                    statusEl.classList.remove('hidden');
+                    statusEl.textContent = `✓ Drive同期済み (${cnt}名突合)`;
+                    loaded.push('ブースログ');
+                    applyMachineLogToAllData();
+                } catch(err) {
+                    setSyncStatus('error', '⚠️ ブースログのJSONが壊れています。Sync Panelから「Drive台帳リセット」後に再アップロードしてください。');
+                }
+            } else {
+                // 旧形式CSV → リセットを促す
+                setSyncStatus('error', '⚠️ Drive上に旧形式（CSV）のブースログが残っています。Sync Panelの「Drive台帳リセット」を実行してから再アップロードしてください。');
+            }
         }
 
         if (!user && !sales && !booth) {
@@ -1623,6 +1666,153 @@ async function syncFromDrive() {
 
 // 後方互換
 async function syncFromGas() { await syncFromDrive(); }
+
+// =============================================
+// ブースログ リセット（ローカルのみ）
+// =============================================
+function resetBoothData() {
+    if (!confirm('読み込み済みのブースデータをリセットします。よろしいですか？\n（Drive上のデータは削除されません）')) return;
+    lastPlayMap = {};
+    boothMacCount = 0;
+    const statusEl = document.getElementById('boothStatus');
+    statusEl.classList.add('hidden');
+    statusEl.textContent = '';
+    document.getElementById('boothFiles').value = '';
+    applyMachineLogToAllData();
+    if (allData.length > 0) applyFilters();
+    updateFlowSteps();
+}
+
+// =============================================
+// ブースログ 小分け追記アップロード（Drive台帳へ追記）
+// =============================================
+async function appendBoothToDrive() {
+    const url = getGasUrl();
+    if (!url) return;
+
+    const input = document.getElementById('boothAppendFiles');
+    const files = Array.from(input.files);
+    if (!files.length) {
+        setSyncStatus('error', '⚠️ 追記するファイルを選択してください。');
+        return;
+    }
+
+    const statusEl   = document.getElementById('boothAppendStatus');
+    const progressEl = document.getElementById('boothProgressBar');
+    const labelEl    = document.getElementById('boothProgressLabel');
+    const pctEl      = document.getElementById('boothProgressPct');
+    const fillEl     = document.getElementById('boothProgressFill');
+
+    progressEl.classList.remove('hidden');
+    statusEl.textContent = '';
+
+    // ── STEP 1: ローカルでCSVを1台ずつ読み込み lastPlayMap に蓄積 ──
+    // CSVはGASに送らず、ここでPLAYINGイベントを抽出するだけ
+    // → RAMは1台分のみ、GASへの転送量も最小
+    let parseCount = 0;
+    const localDelta = {};  // 今回のバッチで更新された分だけのMap
+
+    for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        labelEl.textContent = `[1/2] ${i + 1}/${files.length} 台目を解析中: ${file.name}`;
+        pctEl.textContent   = Math.round((i / files.length) * 50) + '%';
+        fillEl.style.width  = Math.round((i / files.length) * 50) + '%';
+
+        await new Promise(resolve => {
+            Papa.parse(file, {
+                header: true,
+                skipEmptyLines: true,
+                complete: r => {
+                    r.data.forEach(row => {
+                        if ((row.TYPE || '').trim() !== 'PLAYING') return;
+                        const timeStr = (row.TIME || '').trim();
+                        if (!timeStr) return;
+                        const m = (row.INFO || '').match(/['"]player_id['"]\s*:\s*['"]?(\d+)['"]?/);
+                        if (!m) return;
+                        const pid = m[1];
+                        // lastPlayMap（dayjsオブジェクト）とlocalDelta（ISO文字列）を両方更新
+                        const t = dayjs(timeStr);
+                        if (!t.isValid()) return;
+                        if (!lastPlayMap[pid] || t.isAfter(lastPlayMap[pid])) {
+                            lastPlayMap[pid] = t;
+                            localDelta[pid]  = timeStr;
+                        }
+                    });
+                    parseCount++;
+                    resolve();
+                }
+            });
+        });
+        // ブラウザをブロックしないよう少し息継ぎ
+        await new Promise(r => setTimeout(r, 10));
+    }
+
+    // ── STEP 2: deltaJSON（ISO文字列Map）を1回だけGASに送信 ──
+    // 全台合わせても player数×50bytes 程度（数十KB以下）
+    labelEl.textContent = '[2/2] Driveへ送信中...';
+    pctEl.textContent   = '50%';
+    fillEl.style.width  = '50%';
+
+    let uploadOk = false;
+    try {
+        const res = await fetch(url, {
+            method:  'POST',
+            headers: { 'Content-Type': 'text/plain' },
+            body:    JSON.stringify({ type: 'booth_merge', booth: localDelta }),
+            redirect:'follow'
+        });
+        const json = await res.json();
+        if (!json.ok) throw new Error(json.error || '不明なエラー');
+        uploadOk = true;
+    } catch (err) {
+        statusEl.textContent = `⚠️ Drive送信失敗: ${err.message}（ローカルへの反映は完了しています）`;
+    }
+
+    // ── 完了 ──
+    fillEl.style.width = '100%';
+    pctEl.textContent  = '100%';
+    boothMacCount += parseCount;
+
+    applyMachineLogToAllData();
+    if (allData.length > 0) applyFilters();
+
+    const matched = Object.keys(lastPlayMap).length;
+    const boothStatusEl = document.getElementById('boothStatus');
+    boothStatusEl.classList.remove('hidden');
+    boothStatusEl.textContent = `✓ ${boothMacCount}台読込済 (${matched}名突合)`;
+
+    labelEl.textContent  = `完了: ${parseCount}台解析 / ${Object.keys(localDelta).length}件更新`;
+    pctEl.textContent    = '';
+    if (uploadOk) statusEl.textContent = `✅ Driveへ送信完了`;
+    input.value = '';
+    updateFlowSteps();
+
+    setTimeout(() => { progressEl.classList.add('hidden'); }, 4000);
+}
+
+// =============================================
+// Drive上のブース台帳をリセット
+// =============================================
+async function clearBoothOnDrive() {
+    const url = getGasUrl();
+    if (!url) return;
+    if (!confirm('Drive上のブース台帳（dashboard_booth.csv）を削除します。\nよろしいですか？')) return;
+
+    setSyncStatus('loading', '⏳ Drive上のブース台帳を削除中...');
+    try {
+        const res  = await fetch(url, {
+            method:  'POST',
+            headers: { 'Content-Type': 'text/plain' },
+            body:    JSON.stringify({ type: 'booth_clear' }),
+            redirect:'follow'
+        });
+        const json = await res.json();
+        if (!json.ok) throw new Error(json.error || '不明なエラー');
+        setSyncStatus('ok', '🗑 Drive上のブース台帳を削除しました。次回追記から新しい台帳が作成されます。');
+    } catch (err) {
+        setSyncStatus('error', `❌ 削除失敗: ${err.message}`);
+    }
+}
 
 // =============================================
 // ページ読み込み時の自動同期
@@ -1663,58 +1853,33 @@ document.getElementById('salesFile').addEventListener('change', e => {
     Papa.parse(file, { header: true, skipEmptyLines: true, complete: r => processSalesData(r.data) });
 });
 
-document.getElementById('boothFiles').addEventListener('change', e => {
+document.getElementById('boothFiles').addEventListener('change', async e => {
     const files = Array.from(e.target.files);
     if (!files.length) return;
     const statusEl = document.getElementById('boothStatus');
     statusEl.classList.remove('hidden');
     statusEl.textContent = '読み込み中…';
-    lastPlayMap = {};  // リセット
 
-    // 全台分のテキストを収集してマージCSVを作る
-    const rawTexts = new Array(files.length).fill(null);
-    let pending = files.length;
-
-    files.forEach((file, idx) => {
-        // ① CSVテキストを保持（マージ用）
-        const reader = new FileReader();
-        reader.onload = ev => {
-            rawTexts[idx] = ev.target.result;
-        };
-        reader.readAsText(file, 'UTF-8');
-
-        // ② 解析して lastPlayMap を構築
-        Papa.parse(file, {
-            header: true,
-            skipEmptyLines: true,
-            complete: r => {
-                processMachineLog(r.data);
-                pending--;
-                if (pending === 0) {
-                    // 全台読込完了：テキストをヘッダー1行＋データ行でマージ
-                    // (各ファイルの1行目をヘッダーとみなし、先頭ファイルのみ採用)
-                    const lines = [];
-                    let headerSet = false;
-                    rawTexts.forEach(txt => {
-                        if (!txt) return;
-                        const ls = txt.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n');
-                        if (!headerSet) {
-                            lines.push(ls[0]);   // ヘッダー行は最初の1回だけ
-                            headerSet = true;
-                        }
-                        ls.slice(1).forEach(l => { if (l.trim()) lines.push(l); });
-                    });
-                    localBoothCsv = lines.join('\n');
-
-                    const cnt = Object.keys(lastPlayMap).length;
-                    statusEl.textContent = `✓ ${files.length}台読込完了 (${cnt}名突合)`;
-                    applyMachineLogToAllData();
-                    if (allData.length > 0) applyFilters();
-                    updateFlowSteps();
-                }
-            }
+    // ローカル lastPlayMap に追記（リセットしない＝累積可能）
+    let count = 0;
+    for (const file of files) {
+        statusEl.textContent = `読み込み中… ${count + 1}/${files.length}台`;
+        await new Promise(resolve => {
+            Papa.parse(file, {
+                header: true,
+                skipEmptyLines: true,
+                complete: r => { processMachineLog(r.data); count++; resolve(); }
+            });
         });
-    });
+    }
+
+    boothMacCount += files.length;
+    const matched = Object.keys(lastPlayMap).length;
+    statusEl.textContent = `✓ ${boothMacCount}台読込済 (${matched}名突合) ※Driveへの保存はSync Panelから`;
+    applyMachineLogToAllData();
+    if (allData.length > 0) applyFilters();
+    updateFlowSteps();
+    e.target.value = ''; // 同じファイルを再選択できるようにリセット
 });
 
 // =============================================
