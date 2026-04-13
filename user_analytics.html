@@ -98,25 +98,26 @@
             <button onclick="toggleManual()" class="bg-slate-700 hover:bg-slate-600 text-white text-sm font-bold py-2 px-4 rounded-md border border-slate-600 flex items-center gap-2">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>マニュアル
             </button>
-            <!-- GAS同期ボタン -->
-            <button onclick="toggleSyncPanel()" class="bg-indigo-700 hover:bg-indigo-600 text-white text-sm font-bold py-2 px-4 rounded-md border border-indigo-500 flex items-center gap-2">
+            <!-- データ読み込みボタン（メイン） -->
+            <button id="btnOpenLoadPanel" class="bg-sky-600 hover:bg-sky-500 text-white text-sm font-bold py-2 px-4 rounded-md border border-sky-400 flex items-center gap-2">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                データ読み込み
+                <span id="loadDot" class="sync-dot idle"></span>
+            </button>
+            <!-- Drive同期（サブ） -->
+            <button onclick="toggleSyncPanel()" class="bg-slate-700 hover:bg-slate-600 text-white text-sm font-bold py-2 px-4 rounded-md border border-slate-600 flex items-center gap-2">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
                 Drive同期
                 <span id="syncDot" class="sync-dot idle"></span>
             </button>
-            <div class="bg-sky-900/50 p-1.5 rounded-md border border-sky-700 flex items-center gap-2">
-                <span class="text-xs font-bold text-sky-300 ml-2">1. ユーザーCSV:</span>
-                <input type="file" id="csvFile" accept=".csv" class="text-sm text-slate-300 file:mr-4 file:py-1 file:px-3 file:rounded-md file:border-0 file:bg-sky-600 file:text-white hover:file:bg-sky-500 cursor-pointer">
-            </div>
-            <div class="bg-emerald-900/50 p-1.5 rounded-md border border-emerald-700 flex items-center gap-2">
-                <span class="text-xs font-bold text-emerald-300 ml-2">2. 売上CSV:</span>
-                <input type="file" id="salesFile" accept=".csv" class="text-sm text-slate-300 file:mr-4 file:py-1 file:px-3 file:rounded-md file:border-0 file:bg-emerald-600 file:text-white hover:file:bg-emerald-500 cursor-pointer">
-            </div>
-            <div class="bg-violet-900/50 p-1.5 rounded-md border border-violet-700 flex items-center gap-2 flex-wrap">
-                <span class="text-xs font-bold text-violet-300 ml-2">3. ブースログCSV:</span>
-                <input type="file" id="boothFiles" accept=".csv" multiple class="text-sm text-slate-300 file:mr-4 file:py-1 file:px-3 file:rounded-md file:border-0 file:bg-violet-600 file:text-white hover:file:bg-violet-500 cursor-pointer">
+            <!-- CSVファイル読み込み（フォールバック） -->
+            <div class="bg-slate-800/60 p-1.5 rounded-md border border-slate-600 flex items-center gap-2 flex-wrap">
+                <span class="text-xs font-bold text-slate-400 ml-1">CSV手動:</span>
+                <input type="file" id="csvFile" accept=".csv" title="ユーザーCSV" class="text-xs text-slate-400 file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:bg-slate-600 file:text-slate-300 hover:file:bg-slate-500 cursor-pointer">
+                <input type="file" id="salesFile" accept=".csv" title="売上CSV" class="text-xs text-slate-400 file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:bg-slate-600 file:text-slate-300 hover:file:bg-slate-500 cursor-pointer">
+                <input type="file" id="boothFiles" accept=".csv" multiple title="ブースログCSV" class="text-xs text-slate-400 file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:bg-slate-600 file:text-slate-300 hover:file:bg-slate-500 cursor-pointer">
                 <span id="boothStatus" class="text-xs text-violet-400 font-bold hidden"></span>
-                <button onclick="resetBoothData()" class="text-xs text-slate-400 hover:text-red-400 border border-slate-600 hover:border-red-500 px-2 py-1 rounded transition-colors" title="読み込み済みのブースデータをリセット">🗑 リセット</button>
+                <button onclick="resetBoothData()" class="text-xs text-slate-500 hover:text-red-400 border border-slate-700 hover:border-red-500 px-2 py-1 rounded transition-colors" title="ブースデータをリセット">🗑</button>
             </div>
         </div>
     </div>
@@ -576,6 +577,205 @@
     </div>
 </div>
 
+<!-- ===== データ読み込みパネル ===== -->
+<div id="loadPanel" class="hidden fixed inset-0 bg-black/70 z-50 flex justify-center items-center p-4 backdrop-blur-sm no-print">
+    <div class="bg-slate-800 rounded-xl shadow-2xl w-full max-w-lg border border-sky-700/60">
+        <div class="p-5 border-b border-slate-700 flex justify-between items-center">
+            <h2 class="text-lg font-bold text-white flex items-center gap-2">
+                <svg class="w-5 h-5 text-sky-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                データ読み込み
+            </h2>
+            <button id="btnCloseLoadPanel" class="text-slate-400 hover:text-white text-2xl leading-none">&times;</button>
+        </div>
+        <div class="p-5 space-y-4 text-sm">
+
+            <!-- GAS URL -->
+            <div>
+                <label class="block text-xs font-bold text-slate-300 mb-1">GAS ウェブアプリ URL</label>
+                <input type="text" id="loadGasUrl" class="input-field text-xs font-mono"
+                    placeholder="https://script.google.com/macros/s/.../exec">
+            </div>
+
+            <!-- アクセストークン -->
+            <div>
+                <label class="block text-xs font-bold text-slate-300 mb-1">アクセストークン <span class="text-slate-500 font-normal">（ユーザー・課金データの取得に使用）</span></label>
+                <!-- 拡張機能接続状態 -->
+                <div id="bridgeStatus" class="flex items-center gap-2 text-xs mb-2 px-3 py-2 rounded-lg bg-slate-700/40 border border-slate-600">
+                    <span id="bridgeDot" class="sync-dot idle flex-shrink-0"></span>
+                    <span id="bridgeMsg" class="text-slate-400">拡張機能の接続を確認中...</span>
+                    <button id="btnRequestToken" class="ml-auto bg-slate-600 hover:bg-slate-500 text-slate-300 hover:text-white border border-slate-500 px-2 py-0.5 rounded text-xs transition-colors">🔌 再取得</button>
+                </div>
+                <div class="flex gap-2">
+                    <input type="password" id="loadToken" class="input-field text-xs font-mono flex-1" placeholder="拡張機能から自動入力、または手動で貼り付け">
+                    <button id="btnToggleLoadToken" class="bg-slate-600 hover:bg-slate-500 text-slate-300 px-3 rounded border border-slate-500 text-xs flex-shrink-0">👁</button>
+                </div>
+            </div>
+
+            <!-- データソース説明 -->
+            <div class="bg-slate-700/40 rounded-lg p-3 border border-slate-600 space-y-1.5 text-xs">
+                <div class="flex items-center gap-2"><span class="w-2 h-2 rounded-full bg-sky-400 flex-shrink-0"></span><span><span class="font-bold text-sky-300">ユーザーデータ</span> — Admin APIから直接取得</span></div>
+                <div class="flex items-center gap-2"><span class="w-2 h-2 rounded-full bg-emerald-400 flex-shrink-0"></span><span><span class="font-bold text-emerald-300">課金データ</span> — Admin APIから直接取得</span></div>
+                <div class="flex items-center gap-2"><span class="w-2 h-2 rounded-full bg-violet-400 flex-shrink-0"></span><span><span class="font-bold text-violet-300">ブースログ</span> — Google Driveから取得（事前にDrive保存が必要）</span></div>
+            </div>
+
+            <!-- ステータス -->
+            <div id="loadStatusMsg" class="hidden rounded-lg px-4 py-2.5 text-xs font-semibold"></div>
+
+            <!-- 進捗バー -->
+            <div id="loadProgressBar" class="hidden">
+                <div class="flex justify-between text-xs text-slate-400 mb-1">
+                    <span id="loadProgressLabel">読み込み中...</span>
+                </div>
+                <div class="w-full bg-slate-700 rounded-full h-1.5">
+                    <div class="bg-sky-500 h-1.5 rounded-full animate-pulse" style="width:100%"></div>
+                </div>
+            </div>
+
+            <!-- 自動読み込み -->
+            <div class="flex items-center justify-between bg-slate-700/40 rounded-lg px-4 py-2.5 border border-slate-600">
+                <div>
+                    <p class="text-xs font-bold text-slate-200">ページ読み込み時に自動でデータを取得</p>
+                    <p class="text-xs text-slate-500 mt-0.5">URL・トークンを保存済みの場合、開くたびに最新データを反映</p>
+                </div>
+                <label class="flex items-center gap-2 cursor-pointer select-none ml-4">
+                    <div class="relative flex-shrink-0">
+                        <input type="checkbox" id="loadAutoSync" class="sr-only">
+                        <div id="loadToggleBg" class="w-10 h-5 bg-slate-600 rounded-full transition-colors"></div>
+                        <div id="loadToggleDot" class="absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform"></div>
+                    </div>
+                </label>
+            </div>
+        </div>
+
+        <div class="p-4 border-t border-slate-700 flex flex-wrap justify-between items-center gap-2">
+            <span id="loadLastFetched" class="text-xs text-slate-500"></span>
+            <div class="flex gap-2 flex-wrap justify-end">
+                <button id="btnCloseLoadPanel2" class="bg-slate-600 hover:bg-slate-500 text-white font-bold py-2 px-3 rounded-md text-sm">閉じる</button>
+                <button id="btnLoadUserSales"
+                    class="bg-sky-600 hover:bg-sky-500 text-white font-bold py-2 px-3 rounded-md text-sm flex items-center gap-1.5">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0"/></svg>
+                    ユーザー・課金
+                </button>
+                <button id="btnLoadBooth"
+                    class="bg-violet-600 hover:bg-violet-500 text-white font-bold py-2 px-3 rounded-md text-sm flex items-center gap-1.5">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 3H5a2 2 0 00-2 2v4m6-6h10a2 2 0 012 2v4M9 3v18m0 0h10a2 2 0 002-2V9M9 21H5a2 2 0 01-2-2V9m0 0h18"/></svg>
+                    ブースログ
+                </button>
+                <button id="btnLoadAll"
+                    class="bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2 px-3 rounded-md text-sm flex items-center gap-1.5">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                    すべて読み込む
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ===== API自動取得パネル ===== -->
+<div id="apiPanel" class="hidden fixed inset-0 bg-black/70 z-50 flex justify-center items-center p-4 backdrop-blur-sm no-print">
+    <div class="bg-slate-800 rounded-xl shadow-2xl w-full max-w-xl border border-teal-700/60">
+        <div class="p-5 border-b border-slate-700 flex justify-between items-center">
+            <h2 class="text-lg font-bold text-white flex items-center gap-2">
+                <svg class="w-5 h-5 text-teal-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                API 自動データ取得
+            </h2>
+            <button onclick="toggleApiPanel()" class="text-slate-400 hover:text-white text-2xl leading-none">&times;</button>
+        </div>
+        <div class="p-5 space-y-4 text-sm">
+
+            <!-- URL入力 -->
+            <div>
+                <label class="block text-xs font-bold text-slate-300 mb-1">新GAS ウェブアプリ URL</label>
+                <input type="text" id="apiGasUrl" class="input-field text-xs font-mono"
+                    placeholder="https://script.google.com/macros/s/.../exec">
+                <p class="text-xs text-slate-500 mt-1">gas_data_fetcher.gs をデプロイして取得したURLを入力してください。</p>
+            </div>
+
+            <!-- フロー説明 -->
+            <div class="bg-slate-700/40 rounded-lg p-3 border border-slate-600 space-y-1.5 text-xs text-slate-300">
+                <p class="font-bold text-teal-300 mb-1">取得されるデータ</p>
+                <div class="flex items-start gap-2"><span class="text-sky-400 font-bold">①</span><span><span class="font-bold text-sky-300">ユーザーデータ</span> — 全ユーザー一覧をAdmin APIから取得</span></div>
+                <div class="flex items-start gap-2"><span class="text-emerald-400 font-bold">②</span><span><span class="font-bold text-emerald-300">課金データ</span> — 全課金履歴をAdmin APIから取得</span></div>
+                <div class="flex items-start gap-2"><span class="text-violet-400 font-bold">③</span><span><span class="font-bold text-violet-300">ブースログ</span> — 全マシンのプレイ履歴を取得し、インストール→プレイ突合用JSONを生成</span></div>
+            </div>
+
+            <!-- トークン入力 -->
+            <div class="space-y-2">
+                <div class="flex items-center justify-between">
+                    <label class="text-xs font-bold text-slate-300">アクセストークン</label>
+                    <button onclick="pasteTokenFromClipboard()" class="text-xs text-teal-400 hover:text-teal-300 border border-teal-700 hover:border-teal-500 px-2 py-0.5 rounded transition-colors">クリップボードから貼り付け</button>
+                </div>
+                <div class="flex gap-2">
+                    <input type="password" id="apiTokenInput" class="input-field text-xs font-mono flex-1"
+                        placeholder="管理画面のDevToolsからコピーしたトークンを貼り付け"
+                        oninput="onApiTokenInput()">
+                    <button onclick="toggleTokenVisibility()" id="btnTokenEye" class="bg-slate-600 hover:bg-slate-500 text-slate-300 px-3 rounded border border-slate-500 text-xs flex-shrink-0" title="表示/非表示">👁</button>
+                </div>
+                <!-- トークン取得手順 -->
+                <details class="text-xs">
+                    <summary class="text-slate-500 hover:text-slate-300 cursor-pointer select-none">トークンの取得方法</summary>
+                    <div class="mt-2 bg-slate-900 rounded p-3 space-y-1 text-slate-400 border border-slate-700">
+                        <p>① 管理画面（<span class="text-teal-300 font-mono">bountyhunters.app</span>）をブラウザで開きログイン</p>
+                        <p>② F12 でDevToolsを開く</p>
+                        <p>③ <span class="bg-slate-700 px-1 rounded font-mono">Application</span> タブ → <span class="bg-slate-700 px-1 rounded font-mono">Local Storage</span> → サイトのURLを選択</p>
+                        <p>④ <span class="bg-slate-700 px-1 rounded font-mono text-amber-300">access_token</span> の値をコピーして上の欄に貼り付け</p>
+                        <p class="text-slate-500 mt-1">または Console タブで <code class="bg-slate-700 px-1 rounded font-mono text-emerald-300">localStorage.getItem('access_token')</code> を実行してコピー</p>
+                    </div>
+                </details>
+            </div>
+
+            <!-- トークン状態表示 -->
+            <div id="apiTokenStatus" class="rounded-lg px-4 py-2.5 text-xs flex items-center gap-2 bg-slate-700/40 border border-slate-600">
+                <span id="apiTokenDot" class="sync-dot idle flex-shrink-0"></span>
+                <span id="apiTokenMsg" class="text-slate-400">トークン未入力</span>
+            </div>
+
+            <!-- ステータスメッセージ -->
+            <div id="apiStatusMsg" class="hidden rounded-lg px-4 py-2.5 text-xs font-semibold flex items-center gap-2"></div>
+
+            <!-- 進捗バー -->
+            <div id="apiProgressBar" class="hidden">
+                <div class="flex justify-between text-xs text-slate-400 mb-1">
+                    <span id="apiProgressLabel">取得中...</span>
+                    <span id="apiProgressNote" class="text-slate-500">ブースログは全台分処理するため数分かかる場合があります</span>
+                </div>
+                <div class="w-full bg-slate-700 rounded-full h-1.5">
+                    <div id="apiProgressFill" class="bg-teal-500 h-1.5 rounded-full transition-all animate-pulse" style="width:100%"></div>
+                </div>
+            </div>
+
+            <!-- 定期実行用トークン保存 -->
+            <div class="bg-amber-900/20 border border-amber-700/50 rounded-lg p-3 space-y-1.5">
+                <p class="text-xs font-bold text-amber-300">⏰ 定期自動実行の設定</p>
+                <p class="text-xs text-slate-400">「トークンをGASに保存」を実行すると、GASのスクリプトプロパティにトークンが保存されます。GASのトリガー設定で <code class="bg-slate-700 px-1 rounded">scheduledFetch</code> を毎日実行すれば自動更新できます。</p>
+                <button onclick="saveTokenToGas()" class="bg-amber-700 hover:bg-amber-600 text-white font-bold py-1.5 px-3 rounded text-xs flex items-center gap-1">
+                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/></svg>
+                    トークンをGASに保存（定期実行用）
+                </button>
+            </div>
+        </div>
+
+        <div class="p-4 border-t border-slate-700 flex flex-wrap justify-between items-center gap-2">
+            <span id="apiLastFetched" class="text-xs text-slate-500"></span>
+            <div class="flex gap-2">
+                <button onclick="toggleApiPanel()" class="bg-slate-600 hover:bg-slate-500 text-white font-bold py-2 px-4 rounded-md text-sm">閉じる</button>
+                <!-- API取得実行 -->
+                <button onclick="fetchFromApi()" id="btnApiFetch"
+                    class="bg-teal-600 hover:bg-teal-500 text-white font-bold py-2 px-4 rounded-md text-sm flex items-center gap-1.5">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                    今すぐ取得
+                </button>
+                <!-- 取得後にDriveから読み込む -->
+                <button onclick="fetchFromApiThenLoad()" id="btnApiFetchLoad"
+                    class="bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-2 px-4 rounded-md text-sm flex items-center gap-1.5">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                    取得＋ダッシュボードに反映
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- ===== マニュアルモーダル ===== -->
 <div id="manualModal" class="hidden fixed inset-0 bg-black/80 z-50 flex justify-center items-center p-4 backdrop-blur-sm no-print">
     <div class="bg-slate-800 rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col border border-slate-600">
@@ -733,7 +933,7 @@ function processSalesData(rawData) {
     rawData.forEach(row => {
         const rawUser  = String(row.USER||'').trim();
         const user     = normalizeName(rawUser);
-        const sales    = parseInt(row.SALES)||0;
+        const sales    = parseInt(row.VALUE ?? row.SALES)||0;
         const currency = (row.CURRENCY||'').trim().toUpperCase();
         // CURRENCY が JPY または空（Apple Pay / Google Pay 等）の行を集計対象とする
         if (!user || sales <= 0 || (currency !== 'JPY' && currency !== '')) return;
@@ -1487,7 +1687,8 @@ let boothMacCount = 0;   // ローカルで読み込んだブース台数（last
 // パネル開閉
 function toggleSyncPanel() {
     document.getElementById('syncPanel').classList.toggle('hidden');
-    const saved = localStorage.getItem(GAS_URL_KEY) || '';
+    // load_gas_url → gas_dashboard_url の順で共通URLを読み込む
+    const saved = localStorage.getItem(LOAD_GAS_URL_KEY) || localStorage.getItem(GAS_URL_KEY) || '';
     document.getElementById('gasUrl').value = saved;
     const auto = localStorage.getItem(GAS_AUTO_KEY) === '1';
     setAutoToggle(auto);
@@ -1520,11 +1721,17 @@ function updateFlowSteps() {
     // ② はアップロード後に updateFlowSteps('uploaded') で更新
 }
 
-// 設定保存
+// 設定保存（両パネルで共通URLを使うため LOAD_GAS_URL_KEY にも同期）
 function saveGasSettings() {
     const url  = document.getElementById('gasUrl').value.trim();
     const auto = document.getElementById('autoSync').checked;
-    if (url) localStorage.setItem(GAS_URL_KEY, url);
+    if (url) {
+        localStorage.setItem(GAS_URL_KEY, url);
+        localStorage.setItem(LOAD_GAS_URL_KEY, url);
+        // loadPanel の入力欄も更新
+        const loadInput = document.getElementById('loadGasUrl');
+        if (loadInput && !loadInput.value.trim()) loadInput.value = url;
+    }
     localStorage.setItem(GAS_AUTO_KEY, auto ? '1' : '0');
 }
 
@@ -1822,12 +2029,505 @@ async function clearBoothOnDrive() {
 }
 
 // =============================================
+// データ読み込みパネル
+// ユーザー・課金: GAS経由でAdmin APIから取得
+// ブースログ    : GAS経由でDriveから取得
+// =============================================
+const LOAD_GAS_URL_KEY  = 'load_gas_url';
+const LOAD_TOKEN_KEY    = 'load_access_token';
+const LOAD_AUTO_KEY     = 'load_auto_sync';
+const LOAD_LAST_KEY     = 'load_last_fetched';
+
+function initLoadPanel() {
+    document.getElementById('btnOpenLoadPanel').addEventListener('click', toggleLoadPanel);
+    document.getElementById('btnCloseLoadPanel').addEventListener('click', toggleLoadPanel);
+    document.getElementById('btnCloseLoadPanel2').addEventListener('click', toggleLoadPanel);
+    document.getElementById('btnLoadUserSales').addEventListener('click', () => doLoad('usersales'));
+    document.getElementById('btnLoadBooth').addEventListener('click',     () => doLoad('booth'));
+    document.getElementById('btnLoadAll').addEventListener('click',       () => doLoad('all'));
+    document.getElementById('btnToggleLoadToken').addEventListener('click', () => {
+        const el = document.getElementById('loadToken');
+        el.type = el.type === 'password' ? 'text' : 'password';
+    });
+    document.getElementById('btnRequestToken').addEventListener('click', requestTokenFromExtension);
+    document.getElementById('loadAutoSync').addEventListener('change', saveLoadSettings);
+    document.getElementById('loadGasUrl').addEventListener('change', saveLoadSettings);
+    document.getElementById('loadToken').addEventListener('change', saveLoadSettings);
+
+    // トグルUIの見た目
+    document.getElementById('loadAutoSync').addEventListener('change', function() {
+        const on = this.checked;
+        document.getElementById('loadToggleBg').style.background  = on ? '#0d9488' : '';
+        document.getElementById('loadToggleDot').style.transform  = on ? 'translateX(20px)' : '';
+    });
+
+    // 拡張機能からのトークン受信リスナー
+    window.addEventListener('message', (event) => {
+        if (!event.data || event.data.type !== 'BH_TOKEN' || !event.data.fromBridge) return;
+        const token = event.data.token || '';
+        onBridgeToken(token);
+    });
+
+    // 拡張機能にトークンをリクエスト（ページ読み込み時）
+    requestTokenFromExtension();
+}
+
+/** 拡張機能にトークンをリクエストする */
+function requestTokenFromExtension() {
+    setBridgeStatus('loading', '拡張機能に接続中...');
+    window.postMessage({ type: 'BH_REQUEST_TOKEN' }, '*');
+    // 1秒以内に応答がなければ「未接続」と表示
+    setTimeout(() => {
+        const dot = document.getElementById('bridgeDot');
+        if (dot && dot.className.includes('loading')) {
+            setBridgeStatus('idle', '拡張機能未接続 — トークンを手動で入力してください');
+        }
+    }, 1000);
+}
+
+/** 拡張機能からトークンを受け取ったときの処理 */
+function onBridgeToken(token) {
+    if (token) {
+        document.getElementById('loadToken').value = token;
+        localStorage.setItem(LOAD_TOKEN_KEY, token);
+        setBridgeStatus('ok', `✅ 拡張機能からトークン取得済み (${token.slice(0, 20)}...)`);
+        // 「API自動取得」パネルのトークン欄にも反映
+        const apiInput = document.getElementById('apiTokenInput');
+        if (apiInput && !apiInput.value) apiInput.value = token;
+    } else {
+        setBridgeStatus('error', '❌ トークンなし — 管理画面を開いてログインしてください');
+    }
+}
+
+function setBridgeStatus(state, text) {
+    const dot = document.getElementById('bridgeDot');
+    const msg = document.getElementById('bridgeMsg');
+    if (!dot || !msg) return;
+    const classMap = { ok: 'ok', error: 'error', loading: 'loading', idle: 'idle' };
+    dot.className = 'sync-dot ' + (classMap[state] || 'idle') + ' flex-shrink-0';
+    msg.textContent = text;
+    msg.style.color = state === 'ok' ? '#6ee7b7' : state === 'error' ? '#fca5a5' : '#94a3b8';
+}
+
+function toggleLoadPanel() {
+    const panel = document.getElementById('loadPanel');
+    panel.classList.toggle('hidden');
+    if (!panel.classList.contains('hidden')) {
+        // load_gas_url → gas_dashboard_url の順で共通URLを読み込む
+        const savedUrl = localStorage.getItem(LOAD_GAS_URL_KEY) || localStorage.getItem(GAS_URL_KEY) || '';
+        document.getElementById('loadGasUrl').value  = savedUrl;
+        document.getElementById('loadToken').value   = localStorage.getItem(LOAD_TOKEN_KEY)   || '';
+        const auto = localStorage.getItem(LOAD_AUTO_KEY) === '1';
+        document.getElementById('loadAutoSync').checked = auto;
+        document.getElementById('loadToggleBg').style.background = auto ? '#0d9488' : '';
+        document.getElementById('loadToggleDot').style.transform = auto ? 'translateX(20px)' : '';
+        const last = localStorage.getItem(LOAD_LAST_KEY);
+        if (last) document.getElementById('loadLastFetched').textContent = '最終取得: ' + last;
+    }
+}
+
+function saveLoadSettings() {
+    const url   = document.getElementById('loadGasUrl').value.trim();
+    const token = document.getElementById('loadToken').value.trim();
+    const auto  = document.getElementById('loadAutoSync').checked;
+    if (url) {
+        localStorage.setItem(LOAD_GAS_URL_KEY, url);
+        localStorage.setItem(GAS_URL_KEY, url);  // Drive同期パネルとURL共有
+        const syncInput = document.getElementById('gasUrl');
+        if (syncInput) syncInput.value = url;
+    }
+    if (token) localStorage.setItem(LOAD_TOKEN_KEY, token);
+    localStorage.setItem(LOAD_AUTO_KEY, auto ? '1' : '0');
+}
+
+function setLoadStatus(type, html) {
+    const el = document.getElementById('loadStatusMsg');
+    el.classList.remove('hidden', 'alert-info', 'alert-warn', 'alert-danger');
+    const map = { ok: 'alert-info', loading: 'alert-warn', error: 'alert-danger' };
+    el.classList.add(map[type] || 'alert-info');
+    el.innerHTML = html;
+
+    const dot = document.getElementById('loadDot');
+    dot.className = 'sync-dot ' + (type === 'ok' ? 'ok' : type === 'loading' ? 'loading' : type === 'error' ? 'error' : 'idle');
+}
+
+function setLoadProgress(show, label) {
+    const bar = document.getElementById('loadProgressBar');
+    bar.classList.toggle('hidden', !show);
+    if (label) document.getElementById('loadProgressLabel').textContent = label;
+}
+
+async function doLoad(target) {
+    saveLoadSettings();
+    const gasUrl = document.getElementById('loadGasUrl').value.trim();
+    const token  = document.getElementById('loadToken').value.trim();
+
+    if (!gasUrl) { setLoadStatus('error', '⚠️ GAS URLを入力してください。'); return; }
+
+    // ユーザー・課金取得にはトークンが必要
+    if ((target === 'usersales' || target === 'all') && !token) {
+        setLoadStatus('error', '⚠️ アクセストークンを入力してください。');
+        return;
+    }
+
+    const btns = ['btnLoadUserSales','btnLoadBooth','btnLoadAll'].map(id => document.getElementById(id));
+    btns.forEach(b => b.disabled = true);
+
+    const loaded = [];
+
+    try {
+        // ── ユーザー・課金データをAPIから取得 ──────────
+        if (target === 'usersales' || target === 'all') {
+            setLoadStatus('loading', '⏳ ユーザー・課金データをAdmin APIから取得中...');
+            setLoadProgress(true, 'GAS経由でAPIに接続中...');
+
+            const res = await fetch(gasUrl, {
+                method:  'POST',
+                headers: { 'Content-Type': 'text/plain' },
+                body:    JSON.stringify({
+                    action:      'fetch_api',
+                    token,
+                    skip_booth:  true,
+                    return_data: true
+                }),
+                redirect: 'follow'
+            });
+            const text = await res.text();
+            if (text.trimStart().startsWith('<')) throw new Error('GASがHTMLを返しました。デプロイ設定「アクセス: 全員」を確認してください。');
+            const json = JSON.parse(text);
+            if (!json.ok) throw new Error(json.error || '不明なエラー');
+
+            // fetch_api が return_data でCSVを返した場合はそのまま使用
+            // 返ってこなかった場合（旧デプロイ等）はDriveから読み直す
+            let userCsv  = json.data?.user  || null;
+            let salesCsv = json.data?.sales || null;
+
+            if (!userCsv || !salesCsv) {
+                setLoadProgress(true, 'Driveから読み直し中...');
+                const r2   = await fetch(gasUrl + '?type=both', { redirect: 'follow' });
+                const t2   = await r2.text();
+                if (!t2.trimStart().startsWith('<')) {
+                    const j2 = JSON.parse(t2);
+                    if (j2.ok && j2.data) {
+                        if (!userCsv  && j2.data.user)  userCsv  = j2.data.user;
+                        if (!salesCsv && j2.data.sales) salesCsv = j2.data.sales;
+                    }
+                }
+            }
+
+            if (userCsv) {
+                localUserCsv = userCsv;
+                const parsed = Papa.parse(userCsv.trim(), { header: true, skipEmptyLines: true });
+                processData(parsed.data);
+                loaded.push('ユーザー');
+            }
+            if (salesCsv) {
+                localSalesCsv = salesCsv;
+                const parsed = Papa.parse(salesCsv.trim(), { header: true, skipEmptyLines: true });
+                processSalesData(parsed.data);
+                loaded.push('課金');
+            }
+            if (json.errors && json.errors.length) {
+                setLoadStatus('error', `⚠️ 一部エラー: ${esc(json.errors.join(' / '))}`);
+            }
+        }
+
+        // ── ブースログをDriveから取得 ──────────────────
+        if (target === 'booth' || target === 'all') {
+            setLoadStatus('loading', '⏳ ブースログをGoogle Driveから取得中...');
+            setLoadProgress(true, 'Driveに接続中...');
+
+            let boothLoaded = false;
+
+            // まず booth.json (lastPlayMap形式) を試みる
+            try {
+                const res  = await fetch(gasUrl + '?type=both', { redirect: 'follow' });
+                const text = await res.text();
+                if (!text.trimStart().startsWith('<')) {
+                    const json = JSON.parse(text);
+                    if (json.ok && json.data && json.data.booth) {
+                        const trimmed = json.data.booth.trim();
+                        if (trimmed.startsWith('{')) {
+                            const map = JSON.parse(trimmed);
+                            lastPlayMap = {};
+                            Object.entries(map).forEach(([pid, iso]) => {
+                                const t = dayjs(iso);
+                                if (t.isValid()) lastPlayMap[pid] = t;
+                            });
+                            boothLoaded = true;
+                        }
+                    }
+                }
+            } catch (_) { /* fallthrough to booth_log.csv */ }
+
+            // booth.json がなければ booth_log.csv から lastPlayMap を構築
+            if (!boothLoaded) {
+                setLoadProgress(true, 'booth_log.csv を取得中...');
+                const csvRes  = await fetch(gasUrl + '?type=booth_log', { redirect: 'follow' });
+                const csvText = await csvRes.text();
+                if (csvText.trimStart().startsWith('<')) throw new Error('GASがHTMLを返しました。デプロイ設定を確認してください。');
+
+                const parsed = Papa.parse(csvText.trim(), { header: true, skipEmptyLines: true });
+                if (parsed.data && parsed.data.length > 0) {
+                    lastPlayMap = {};
+                    parsed.data.forEach(row => {
+                        const pid     = (row.user_id   || '').trim();
+                        const dateStr = (row.play_date || '').trim();
+                        if (!pid || !dateStr) return;
+                        const t = dayjs(dateStr);
+                        if (!t.isValid()) return;
+                        if (!lastPlayMap[pid] || t.isAfter(lastPlayMap[pid])) {
+                            lastPlayMap[pid] = t;
+                        }
+                    });
+                    boothLoaded = parsed.data.length > 0;
+                }
+            }
+
+            if (boothLoaded) {
+                boothMacCount = Object.keys(lastPlayMap).length;
+                const statusEl = document.getElementById('boothStatus');
+                statusEl.classList.remove('hidden');
+                statusEl.textContent = `✓ Drive同期済み (${boothMacCount}名突合)`;
+                applyMachineLogToAllData();
+                loaded.push('ブースログ');
+            }
+        }
+
+        if (loaded.length === 0) {
+            setLoadStatus('error', '⚠️ Driveにデータがありません。先に拡張機能でデータを取得してください。');
+            return;
+        }
+
+        if (allData.length > 0) applyFilters();
+
+        const now = dayjs().format('YYYY-MM-DD HH:mm:ss');
+        localStorage.setItem(LOAD_LAST_KEY, now);
+        document.getElementById('loadLastFetched').textContent = '最終取得: ' + now;
+        setLoadStatus('ok', `✅ 読み込み完了（${loaded.join('・')}）— ${now}`);
+        setLoadProgress(false);
+
+    } catch (err) {
+        setLoadStatus('error', `❌ 取得失敗: ${esc(err.message)}`);
+        setLoadProgress(false);
+    } finally {
+        btns.forEach(b => b.disabled = false);
+    }
+}
+
+// =============================================
+// API 自動取得パネル
+// =============================================
+const API_GAS_URL_KEY = 'api_gas_url';
+
+const API_TOKEN_STORE_KEY = 'api_access_token';
+
+function toggleApiPanel() {
+    const panel = document.getElementById('apiPanel');
+    panel.classList.toggle('hidden');
+    if (!panel.classList.contains('hidden')) {
+        // パネルを開いたときにURLを復元
+        const savedUrl = localStorage.getItem(API_GAS_URL_KEY) || '';
+        document.getElementById('apiGasUrl').value = savedUrl;
+        // 保存済みトークンがあれば入力欄に復元
+        const savedToken = localStorage.getItem(API_TOKEN_STORE_KEY) || '';
+        if (savedToken) document.getElementById('apiTokenInput').value = savedToken;
+        checkApiToken();
+    }
+}
+
+/** 入力欄またはlocalStorageからトークンを取得する */
+function getApiToken() {
+    // 1. 入力欄を最優先
+    const inputVal = (document.getElementById('apiTokenInput').value || '').trim();
+    if (inputVal) return inputVal;
+    // 2. このダッシュボード用に保存したトークン
+    const stored = localStorage.getItem(API_TOKEN_STORE_KEY) || '';
+    if (stored) return stored;
+    // 3. 同一オリジンにあれば管理画面のトークンも試みる（ローカルHTML以外で開いた場合）
+    return localStorage.getItem('access_token') || '';
+}
+
+function onApiTokenInput() {
+    // 入力されたトークンをlocalStorageに保存して次回以降復元
+    const val = (document.getElementById('apiTokenInput').value || '').trim();
+    if (val) localStorage.setItem(API_TOKEN_STORE_KEY, val);
+    checkApiToken();
+}
+
+function toggleTokenVisibility() {
+    const input = document.getElementById('apiTokenInput');
+    input.type = input.type === 'password' ? 'text' : 'password';
+}
+
+async function pasteTokenFromClipboard() {
+    try {
+        const text = await navigator.clipboard.readText();
+        if (text && text.trim()) {
+            document.getElementById('apiTokenInput').value = text.trim();
+            onApiTokenInput();
+        }
+    } catch (e) {
+        setApiStatus('error', '⚠️ クリップボードへのアクセスが拒否されました。手動で貼り付けてください。');
+    }
+}
+
+function checkApiToken() {
+    const token = getApiToken();
+    const dot = document.getElementById('apiTokenDot');
+    const msg = document.getElementById('apiTokenMsg');
+    if (token) {
+        dot.className = 'sync-dot ok flex-shrink-0';
+        msg.className = 'text-emerald-400 font-bold';
+        msg.textContent = `✅ トークン設定済み (${token.slice(0, 20)}...)`;
+    } else {
+        dot.className = 'sync-dot error flex-shrink-0';
+        msg.className = 'text-red-400';
+        msg.textContent = '❌ トークンが未入力です。上の欄に管理画面のトークンを貼り付けてください。';
+    }
+}
+
+function getApiGasUrl() {
+    const url = document.getElementById('apiGasUrl').value.trim();
+    if (!url) {
+        setApiStatus('error', '⚠️ GAS ウェブアプリ URL を入力してください。');
+        return null;
+    }
+    localStorage.setItem(API_GAS_URL_KEY, url);
+    return url;
+}
+
+function setApiStatus(type, html) {
+    const el = document.getElementById('apiStatusMsg');
+    el.classList.remove('hidden', 'alert-info', 'alert-warn', 'alert-danger');
+    const map = { ok: 'alert-info', loading: 'alert-warn', error: 'alert-danger' };
+    el.classList.add(map[type] || 'alert-info');
+    el.innerHTML = html;
+
+    const dot = document.getElementById('apiDot');
+    dot.className = 'sync-dot ' + (type === 'ok' ? 'ok' : type === 'loading' ? 'loading' : type === 'error' ? 'error' : 'idle');
+}
+
+function setApiProgress(show, label) {
+    const bar = document.getElementById('apiProgressBar');
+    if (show) {
+        bar.classList.remove('hidden');
+        if (label) document.getElementById('apiProgressLabel').textContent = label;
+    } else {
+        bar.classList.add('hidden');
+    }
+}
+
+/** API取得をトリガー（Driveには保存するがダッシュボードには反映しない） */
+async function fetchFromApi() {
+    await _doApiFetch(false);
+}
+
+/** API取得→Drive保存→ダッシュボードに反映 */
+async function fetchFromApiThenLoad() {
+    await _doApiFetch(true);
+}
+
+async function _doApiFetch(andLoad) {
+    const url   = getApiGasUrl();
+    if (!url) return;
+
+    const token = getApiToken();
+    if (!token) {
+        setApiStatus('error', '❌ トークンが未入力です。上の欄に管理画面のアクセストークンを貼り付けてください。');
+        return;
+    }
+
+    setApiStatus('loading', '⏳ Admin API からデータを取得中... ブースログは全台処理のため数分かかる場合があります。');
+    setApiProgress(true, 'GASに取得リクエスト送信中...');
+    document.getElementById('btnApiFetch').disabled     = true;
+    document.getElementById('btnApiFetchLoad').disabled = true;
+
+    try {
+        const res = await fetch(url, {
+            method:   'POST',
+            headers:  { 'Content-Type': 'text/plain' },
+            body:     JSON.stringify({ action: 'fetch_api', token }),
+            redirect: 'follow'
+        });
+        const json = await res.json();
+
+        if (!json.ok) throw new Error(json.error || '不明なエラー');
+
+        const saved  = json.saved  || [];
+        const errors = json.errors || [];
+        const now    = dayjs().format('YYYY-MM-DD HH:mm:ss');
+        document.getElementById('apiLastFetched').textContent = `最終取得: ${now}`;
+
+        let msg = `✅ 取得完了（${saved.join('・')}）— ${now}`;
+        if (errors.length) msg += `<br><span style="color:#fca5a5">⚠️ 一部エラー: ${esc(errors.join(' / '))}</span>`;
+        setApiStatus('ok', msg);
+        setApiProgress(false);
+
+        // ダッシュボードに反映（Drive→ダッシュボードの既存同期を呼ぶ）
+        if (andLoad && saved.length > 0) {
+            setApiStatus('loading', '⏳ Driveからダッシュボードへ反映中...');
+            await syncFromDrive();
+            setApiStatus('ok', `✅ 取得＆反映完了（${saved.join('・')}）— ${now}`);
+        }
+
+    } catch (err) {
+        setApiStatus('error', `❌ 取得失敗: ${esc(err.message)}<br><span style="opacity:0.7;font-weight:400">GAS URL・デプロイ設定・トークンをご確認ください。</span>`);
+        setApiProgress(false);
+    } finally {
+        document.getElementById('btnApiFetch').disabled     = false;
+        document.getElementById('btnApiFetchLoad').disabled = false;
+    }
+}
+
+/** トークンをGASのスクリプトプロパティに保存（定期実行用） */
+async function saveTokenToGas() {
+    const url   = getApiGasUrl();
+    if (!url) return;
+
+    const token = getApiToken();
+    if (!token) {
+        setApiStatus('error', '❌ トークンが未入力です。上の欄にトークンを貼り付けてください。');
+        return;
+    }
+
+    setApiStatus('loading', '⏳ GASにトークンを保存中...');
+    try {
+        const res  = await fetch(url, {
+            method:   'POST',
+            headers:  { 'Content-Type': 'text/plain' },
+            body:     JSON.stringify({ action: 'save_token', token }),
+            redirect: 'follow'
+        });
+        const json = await res.json();
+        if (!json.ok) throw new Error(json.error || '不明なエラー');
+        setApiStatus('ok', '🔑 トークンをGASのスクリプトプロパティに保存しました。GASのトリガー設定で scheduledFetch を定期実行できます。');
+    } catch (err) {
+        setApiStatus('error', `❌ 保存失敗: ${esc(err.message)}`);
+    }
+}
+
+// =============================================
 // ページ読み込み時の自動同期
 // =============================================
 window.addEventListener('load', () => {
+    // データ読み込みパネルの初期化
+    initLoadPanel();
+
+    // データ読み込みパネルの自動取得
+    const loadAuto = localStorage.getItem(LOAD_AUTO_KEY) === '1';
+    const loadUrl  = localStorage.getItem(LOAD_GAS_URL_KEY) || '';
+    const loadTok  = localStorage.getItem(LOAD_TOKEN_KEY)   || '';
+    if (loadAuto && loadUrl) {
+        document.getElementById('loadGasUrl').value = loadUrl;
+        document.getElementById('loadToken').value  = loadTok;
+        doLoad('all');
+    }
+
+    // 既存Drive同期の自動取得（後方互換）
     const auto = localStorage.getItem(GAS_AUTO_KEY) === '1';
     const url  = localStorage.getItem(GAS_URL_KEY)  || '';
-    if (auto && url) {
+    if (!loadAuto && auto && url) {
         document.getElementById('gasUrl').value = url;
         setAutoToggle(true);
         syncFromDrive();
