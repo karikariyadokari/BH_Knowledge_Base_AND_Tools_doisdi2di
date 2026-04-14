@@ -885,6 +885,13 @@ function normalizeName(name) {
 //   A or C → churn、B or D → risk（churnが優先）
 // =============================================
 function getChurnStatus(d) {
+    // DELETED / BANNED → 無条件で離脱状態
+    const status = (d.STATUS || '').toUpperCase();
+    if (status === 'DELETED' || status === 'BANNED') return 'churn';
+
+    // FIRST LOGIN AT がない or 無効 → 一度もログインしていない離脱状態
+    if (!d.date || !d.date.isValid()) return 'churn';
+
     const lpd  = (d.lastPlayDays !== null && d.lastPlayDays !== undefined) ? d.lastPlayDays : null;
     const days = (d.days !== undefined && d.days >= 0) ? d.days : null;
     const lv   = d.lvNum || 0;
@@ -2516,18 +2523,24 @@ window.addEventListener('load', () => {
 
     // データ読み込みパネルの自動取得
     const loadAuto = localStorage.getItem(LOAD_AUTO_KEY) === '1';
-    const loadUrl  = localStorage.getItem(LOAD_GAS_URL_KEY) || '';
+    const loadUrl  = localStorage.getItem(LOAD_GAS_URL_KEY) || localStorage.getItem(GAS_URL_KEY) || '';
     const loadTok  = localStorage.getItem(LOAD_TOKEN_KEY)   || '';
-    if (loadAuto && loadUrl) {
+    if (loadUrl) {
         document.getElementById('loadGasUrl').value = loadUrl;
         document.getElementById('loadToken').value  = loadTok;
-        doLoad('all');
+        if (loadAuto) {
+            // 自動同期ON → ユーザー/課金/ブースログをすべて取得（トークン不足はdoLoad内でエラー表示）
+            doLoad('all');
+        } else {
+            // 自動同期OFF → ブースログだけDriveから読み込む（トークン不要）
+            doLoad('booth');
+        }
     }
 
-    // 既存Drive同期の自動取得（後方互換）
+    // Drive同期パネルの自動取得（loadPanelと独立して動作）
     const auto = localStorage.getItem(GAS_AUTO_KEY) === '1';
-    const url  = localStorage.getItem(GAS_URL_KEY)  || '';
-    if (!loadAuto && auto && url) {
+    const url  = localStorage.getItem(GAS_URL_KEY) || loadUrl;
+    if (auto && url) {
         document.getElementById('gasUrl').value = url;
         setAutoToggle(true);
         syncFromDrive();
