@@ -788,6 +788,7 @@ async function loadBoothTypesFromGAS() {
     localStorage.setItem('booth_types_cache', JSON.stringify(items));
     localStorage.setItem('booth_types_ts', lastModified || '');
     renderBoothTypeList();
+    renderAll(); // ログ・ライバータブの遊び方名を再描画
     console.log('[BoothTypes] GASから更新を取得。');
   } catch(e) {
     console.warn('[BoothTypes] GAS読込エラー:', e.message);
@@ -1973,6 +1974,7 @@ function renderLiverApiResults() {
 // STARTUP
 // ============================================================
 loadLocal();
+loadBoothTypesFromCache(); // renderAll の前に遊び方名を復元
 renderAll();
 
 // Restore saved token
