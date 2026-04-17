@@ -572,6 +572,13 @@
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
                     Driveから取得
                 </button>
+                <!-- 週次アクティブUID保存 -->
+                <button onclick="saveWeeklyActiveUsers()" id="btnWeeklyActive"
+                    class="bg-emerald-700 hover:bg-emerald-600 text-white font-bold py-2 px-4 rounded-md text-sm flex items-center gap-1.5"
+                    title="最終プレイが直近7日以内のユーザーIDをJSONでDriveに保存します">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                    週次アクティブUID保存
+                </button>
             </div>
         </div>
     </div>
@@ -1002,17 +1009,31 @@ function processMachineLog(rawData) {
 }
 
 function applyMachineLogToAllData() {
-    if (!allData.length) return;
+    if (!allData.length) return 0;
     const today = dayjs();
+    let matchCount = 0;
     allData = allData.map(d => {
         const userId = String(d.ID || '');
         const lastPlay = lastPlayMap[userId] || null;
+        if (lastPlay) matchCount++;
         return {
             ...d,
             lastPlay,
             lastPlayDays: lastPlay ? today.diff(lastPlay, 'day') : null
         };
     });
+    // デバッグ: IDマッチング状況をコンソールに出力
+    const lmKeys  = Object.keys(lastPlayMap);
+    const adIds   = allData.map(d => String(d.ID || ''));
+    console.log(`[booth] lastPlayMap=${lmKeys.length}件 allData=${allData.length}件 matched=${matchCount}件`);
+    if (lmKeys.length > 0 && allData.length > 0) {
+        console.log('[booth] lastPlayMap keys sample:', lmKeys.slice(0, 5));
+        console.log('[booth] allData ID sample:', adIds.slice(0, 5));
+        if (matchCount === 0) {
+            console.warn('[booth] ⚠️ IDが一致するユーザーが0件です。user_idとIDの形式が違う可能性があります。');
+        }
+    }
+    return matchCount;
 }
 
 // =============================================
@@ -1810,6 +1831,62 @@ async function uploadToDrive() {
 }
 
 // =============================================
+// 週次アクティブUID → Drive に保存
+// =============================================
+async function saveWeeklyActiveUsers() {
+    const url = getGasUrl();
+    if (!url) return;
+
+    if (Object.keys(lastPlayMap).length === 0) {
+        setSyncStatus('error', '⚠️ ブースログが読み込まれていません。先にブースログを読み込んでください。');
+        return;
+    }
+
+    const btn = document.getElementById('btnWeeklyActive');
+    if (btn) btn.disabled = true;
+    setSyncStatus('loading', '⏳ 週次アクティブユーザーIDを集計中...');
+
+    try {
+        const today = dayjs();
+        const threshold = today.subtract(7, 'day').startOf('day');
+
+        const weeklyIds = Object.entries(lastPlayMap)
+            .filter(([, lastPlay]) => lastPlay.isAfter(threshold) || lastPlay.isSame(threshold, 'day'))
+            .map(([uid]) => uid);
+
+        if (weeklyIds.length === 0) {
+            setSyncStatus('error', '⚠️ 直近7日以内にプレイしたユーザーが見つかりません。');
+            return;
+        }
+
+        const generatedAt = today.format('YYYY-MM-DD HH:mm:ss');
+        setSyncStatus('loading', `⏳ ${weeklyIds.length}名のUIDをDriveに保存中...`);
+
+        const res = await fetch(url, {
+            method:  'POST',
+            headers: { 'Content-Type': 'text/plain' },
+            body:    JSON.stringify({
+                action:       'save_weekly_active',
+                user_ids:     weeklyIds,
+                generated_at: generatedAt,
+                count:        weeklyIds.length
+            }),
+            redirect: 'follow'
+        });
+        const json = await res.json();
+        if (!json.ok) throw new Error(json.error || '不明なエラー');
+
+        setSyncStatus('ok', `✅ 週次アクティブUID保存完了（${weeklyIds.length}名）— ${generatedAt}<br><span style="font-weight:400;opacity:0.8">weekly_active_users.json として Drive に保存されました。</span>`);
+        document.getElementById('syncLastFetched').innerText = `最終保存: ${generatedAt}`;
+
+    } catch (err) {
+        setSyncStatus('error', `❌ 保存失敗: ${esc(err.message)}<br><span style="opacity:0.7;font-weight:400">GAS URL・デプロイ設定をご確認ください。</span>`);
+    } finally {
+        if (btn) btn.disabled = false;
+    }
+}
+
+// =============================================
 // ③ Driveから取得（Drive → ダッシュボード）
 // =============================================
 async function syncFromDrive() {
@@ -1974,12 +2051,20 @@ async function appendBoothToDrive() {
     pctEl.textContent   = '50%';
     fillEl.style.width  = '50%';
 
+    // lastPlayMap（dayjs オブジェクト）を ISO 文字列の平坦な Map に変換してから送信
+    // localDelta（今回の差分）だけでなく lastPlayMap 全体を送ることで
+    // バッチを繰り返しても Drive 側のデータが上書き消滅しない
+    const boothPayload = {};
+    Object.entries(lastPlayMap).forEach(([pid, dj]) => {
+        boothPayload[pid] = dj.toISOString();
+    });
+
     let uploadOk = false;
     try {
         const res = await fetch(url, {
             method:  'POST',
             headers: { 'Content-Type': 'text/plain' },
-            body:    JSON.stringify({ type: 'booth_merge', booth: localDelta }),
+            body:    JSON.stringify({ type: 'booth_merge', booth: boothPayload }),
             redirect:'follow'
         });
         const json = await res.json();
@@ -2243,61 +2328,139 @@ async function doLoad(target) {
         // ── ブースログをDriveから取得 ──────────────────
         if (target === 'booth' || target === 'all') {
             setLoadStatus('loading', '⏳ ブースログをGoogle Driveから取得中...');
-            setLoadProgress(true, 'Driveに接続中...');
+            setLoadProgress(true, 'booth_log.csv を取得中...');
 
-            let boothLoaded = false;
+            // booth_log.csv から lastPlayMap を構築するヘルパー
+            const buildLastPlayMapFromCsv = csvText => {
+                const map    = {};
+                const parsed = Papa.parse(csvText.trim(), { header: true, skipEmptyLines: true });
+                (parsed.data || []).forEach(row => {
+                    const pid     = (row.user_id   || '').trim();
+                    const dateStr = (row.play_date || '').trim();
+                    if (!pid || !dateStr) return;
+                    const t = dayjs(dateStr);
+                    if (!t.isValid()) return;
+                    if (!map[pid] || t.isAfter(map[pid])) map[pid] = t;
+                });
+                return map;
+            };
 
-            // まず booth.json (lastPlayMap形式) を試みる
-            try {
-                const res  = await fetch(gasUrl + '?type=both', { redirect: 'follow' });
-                const text = await res.text();
-                if (!text.trimStart().startsWith('<')) {
-                    const json = JSON.parse(text);
-                    if (json.ok && json.data && json.data.booth) {
-                        const trimmed = json.data.booth.trim();
-                        if (trimmed.startsWith('{')) {
-                            const map = JSON.parse(trimmed);
-                            lastPlayMap = {};
-                            Object.entries(map).forEach(([pid, iso]) => {
-                                const t = dayjs(iso);
-                                if (t.isValid()) lastPlayMap[pid] = t;
-                            });
-                            boothLoaded = true;
+            // Step 1: booth_log.csv を取得して lastPlayMap を初期構築
+            const csvRes1  = await fetch(gasUrl + '?type=booth_log', { redirect: 'follow' });
+            const csvText1 = await csvRes1.text();
+            if (csvText1.trimStart().startsWith('<')) throw new Error('GASがHTMLを返しました。デプロイ設定を確認してください。');
+            lastPlayMap = buildLastPlayMapFromCsv(csvText1);
+
+            // booth_log.csv の最新日付
+            const maxDateInCsv = Object.values(lastPlayMap).reduce((max, d) => (!max || d.isAfter(max)) ? d : max, null);
+            const latestDateStr = maxDateInCsv ? maxDateInCsv.format('YYYY-MM-DD') : '(なし)';
+            const today = dayjs().format('YYYY-MM-DD');
+            const needsFill = !maxDateInCsv || latestDateStr < today;
+
+            setLoadProgress(true, `booth_log.csv 読み込み完了（${Object.keys(lastPlayMap).length}名 / 最新:${latestDateStr}）${needsFill && token ? '。API補完中...' : ''}`);
+
+            // Step 2: 最新日が昨日より古くてトークンがあれば API から欠損日分を補完
+            let apiAdded   = 0;
+            let apiTimedOut = false;
+            if (needsFill && token) {
+                const fillAbort = new AbortController();
+                const fillTimer = setTimeout(() => fillAbort.abort(), 5 * 60 * 1000);
+                try {
+                    const fillRes  = await fetch(gasUrl, {
+                        method:   'POST',
+                        headers:  { 'Content-Type': 'text/plain' },
+                        body:     JSON.stringify({ action: 'fill_booth_log_from_api', token }),
+                        redirect: 'follow',
+                        signal:   fillAbort.signal
+                    });
+                    clearTimeout(fillTimer);
+                    const fillText = await fillRes.text();
+                    if (fillText.trimStart().startsWith('<')) {
+                        setLoadProgress(true, '⚠️ GASがHTMLを返しました。再デプロイを確認してください。');
+                    } else {
+                        const fillJson = JSON.parse(fillText);
+                        console.log('[fill] 完了:', fillJson);
+                        if (fillJson.apiSample) console.log('[fill] APIサンプル:', fillJson.apiSample);
+                        if (fillJson.ok) {
+                            apiAdded    = fillJson.added    || 0;
+                            apiTimedOut = fillJson.timedOut || false;
+                            window._fillDiag = {
+                                processedMachines: fillJson.processedMachines || 0,
+                                machineCount:      fillJson.machineCount      || 0,
+                                totalRecords:      fillJson.totalRecords      || 0,
+                                totalPlaying:      fillJson.totalPlaying      || 0,
+                                totalWithPid:      fillJson.totalWithPid      || 0,
+                                timedOut:          fillJson.timedOut          || false,
+                                latestDate:        fillJson.latestDate        || '',
+                                apiSample:         fillJson.apiSample         || null
+                            };
+                        } else {
+                            console.warn('[fill] GASエラー:', fillJson.error);
+                            setLoadProgress(true, `⚠️ API補完エラー: ${esc(fillJson.error || '不明')}`);
                         }
                     }
-                }
-            } catch (_) { /* fallthrough to booth_log.csv */ }
-
-            // booth.json がなければ booth_log.csv から lastPlayMap を構築
-            if (!boothLoaded) {
-                setLoadProgress(true, 'booth_log.csv を取得中...');
-                const csvRes  = await fetch(gasUrl + '?type=booth_log', { redirect: 'follow' });
-                const csvText = await csvRes.text();
-                if (csvText.trimStart().startsWith('<')) throw new Error('GASがHTMLを返しました。デプロイ設定を確認してください。');
-
-                const parsed = Papa.parse(csvText.trim(), { header: true, skipEmptyLines: true });
-                if (parsed.data && parsed.data.length > 0) {
-                    lastPlayMap = {};
-                    parsed.data.forEach(row => {
-                        const pid     = (row.user_id   || '').trim();
-                        const dateStr = (row.play_date || '').trim();
-                        if (!pid || !dateStr) return;
-                        const t = dayjs(dateStr);
-                        if (!t.isValid()) return;
-                        if (!lastPlayMap[pid] || t.isAfter(lastPlayMap[pid])) {
-                            lastPlayMap[pid] = t;
-                        }
-                    });
-                    boothLoaded = parsed.data.length > 0;
+                } catch (e2) {
+                    clearTimeout(fillTimer);
+                    if (e2.name === 'AbortError') {
+                        setLoadProgress(true, '⚠️ API補完タイムアウト（5分超）。既存データで続行します。');
+                    } else {
+                        setLoadProgress(true, `⚠️ API補完失敗: ${esc(e2.message)}`);
+                    }
                 }
             }
 
+            // Step 3: 新規データが追加されていれば booth_log.csv を再取得して再構築
+            if (apiAdded > 0) {
+                setLoadProgress(true, `${apiAdded}件追加済み。booth_log.csv を再取得中...`);
+                const csvRes2  = await fetch(gasUrl + '?type=booth_log', { redirect: 'follow' });
+                const csvText2 = await csvRes2.text();
+                if (!csvText2.trimStart().startsWith('<')) {
+                    lastPlayMap = buildLastPlayMapFromCsv(csvText2);
+                }
+            }
+
+            const boothLoaded = Object.keys(lastPlayMap).length > 0;
             if (boothLoaded) {
                 boothMacCount = Object.keys(lastPlayMap).length;
+                const matchCount = applyMachineLogToAllData();
+
+                // lastPlayMap の最新日付を取得
+                const latestPlay = Object.values(lastPlayMap).reduce((m, d) => (!m || d.isAfter(m)) ? d : m, null);
+                const latestStr  = latestPlay ? latestPlay.format('YYYY-MM-DD') : '不明';
+
                 const statusEl = document.getElementById('boothStatus');
                 statusEl.classList.remove('hidden');
-                statusEl.textContent = `✓ Drive同期済み (${boothMacCount}名突合)`;
-                applyMachineLogToAllData();
+
+                let apiDetail = '';
+                if (needsFill && token) {
+                    const d = window._fillDiag;
+                    if (d) {
+                        const machStr = `${d.processedMachines}/${d.machineCount}台`;
+                        const toStr   = d.timedOut ? ' ⚠️途中' : '';
+                        if (apiAdded > 0) {
+                            apiDetail = ` +${apiAdded}件追加 (${machStr}/rec:${d.totalRecords}/play:${d.totalPlaying}/pid:${d.totalWithPid})${toStr}`;
+                        } else {
+                            apiDetail = ` API補完+0件 (${machStr}/rec:${d.totalRecords}/play:${d.totalPlaying}/pid:${d.totalWithPid})${toStr}`;
+                        }
+                        if (d.apiSample) {
+                            console.log('[fill] APIレスポンス構造:', d.apiSample);
+                        }
+                    } else {
+                        apiDetail = ' (API補完結果なし)';
+                    }
+                } else if (needsFill && !token) {
+                    apiDetail = ' (トークン未入力)';
+                }
+
+                if (allData.length === 0) {
+                    statusEl.textContent = `⚠️ booth_log: ${boothMacCount}件読込 (最新:${latestStr})${apiDetail} — ユーザーデータを先に読み込んでください`;
+                    setLoadStatus('error', `⚠️ ユーザーデータが未読込のためブースログを突合できません。「すべて」ボタンで読み込んでください。`);
+                } else if (matchCount === 0) {
+                    statusEl.textContent = `⚠️ booth_log: ${boothMacCount}件読込 / 0名突合 (最新:${latestStr})${apiDetail} — IDが不一致`;
+                    setLoadStatus('error', `⚠️ ブースログとユーザーデータのIDが一致しません（F12コンソールで確認）`);
+                } else {
+                    statusEl.textContent = `✓ booth_log: ${boothMacCount}件 / ${matchCount}名突合 (最新:${latestStr})${apiDetail}`;
+                }
                 loaded.push('ブースログ');
             }
         }
