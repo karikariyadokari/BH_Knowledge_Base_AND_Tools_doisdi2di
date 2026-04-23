@@ -1,0 +1,1167 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Live Management Dashboard</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Segoe UI', system-ui, sans-serif; background: #0d0d1a; color: #e0e0f0; min-height: 100vh; }
+
+    /* ── Navbar ── */
+    .navbar { background: #12122a; border-bottom: 1px solid #1e1e4a; padding: 0 14px; display: flex; align-items: center; gap: 2px; flex-wrap: wrap; min-height: 50px; }
+    .navbar-brand { font-size: 1rem; font-weight: 700; color: #ff4d6d; margin-right: 10px; white-space: nowrap; }
+    .tab-btn { background: transparent; border: none; color: #9ca3c8; padding: 5px 11px; cursor: pointer; border-radius: 4px; font-size: 0.8rem; height: 32px; transition: background .12s; white-space: nowrap; }
+    .tab-btn:hover { background: #1e1e4a; color: #e0e0f0; }
+    .tab-btn.active { background: #ff4d6d; color: #fff; }
+    #conn-dot { width: 7px; height: 7px; border-radius: 50%; background: #4b5563; margin-left: 6px; flex-shrink: 0; transition: background .3s; }
+    #conn-dot.ok { background: #4ade80; } #conn-dot.error { background: #f87171; }
+
+    /* ── Layout ── */
+    .tab-content { display: none; padding: 14px; max-width: 1300px; margin: 0 auto; }
+    .tab-content.active { display: block; }
+    .card { background: #12122a; border: 1px solid #1e1e4a; border-radius: 8px; padding: 14px; margin-bottom: 14px; }
+    .card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+    .card-header h2 { font-size: 0.9rem; font-weight: 600; color: #ff4d6d; }
+    .two-col-60 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    @media (max-width:700px) { .two-col-60 { grid-template-columns: 1fr; } }
+
+    /* ── Summary bar ── */
+    .summary-bar { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
+    .sum-card { background: #1a1a38; border: 1px solid #2a2a5a; border-radius: 8px; padding: 12px 18px; flex: 1 1 120px; }
+    .sum-val  { font-size: 1.6rem; font-weight: 800; color: #4ade80; line-height: 1; }
+    .sum-lbl  { font-size: 0.68rem; color: #6b7280; margin-top: 3px; }
+
+    /* ── Stream / Live cards ── */
+    .stream-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px,1fr)); gap: 10px; }
+    .stream-card { background: #1a1a38; border: 1px solid #2a2a5a; border-radius: 8px; padding: 13px; }
+    .stream-title { font-size: 0.86rem; font-weight: 600; color: #c8c8f0; margin-bottom: 6px; line-height: 1.3; }
+    .viewer-count { font-size: 2rem; font-weight: 800; color: #4ade80; line-height: 1; }
+    .viewer-label { font-size: 0.7rem; color: #6b7280; margin-bottom: 6px; }
+    .meta { font-size: 0.73rem; color: #6b7280; line-height: 1.7; }
+    .badge-live { display: inline-block; background: #dc2626; color: #fff; font-size: 0.66rem; font-weight: 700; padding: 1px 7px; border-radius: 10px; margin-top: 5px; }
+    .badge-new  { display: inline-block; background: #1d4ed8; color: #fff; font-size: 0.66rem; font-weight: 700; padding: 1px 7px; border-radius: 10px; }
+
+    /* ── Stats row ── */
+    .stats-row { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
+    .stat-box { background: #1a1a38; border: 1px solid #2a2a5a; border-radius: 8px; padding: 10px 14px; min-width: 90px; text-align: center; }
+    .stat-value { font-size: 1.3rem; font-weight: 700; color: #4ade80; }
+    .stat-label { font-size: 0.66rem; color: #6b7280; margin-top: 2px; }
+    .chart-wrap { position: relative; height: 300px; }
+
+    /* ── Controls ── */
+    .controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 12px; }
+    select, input[type="text"] { background: #1a1a38; border: 1px solid #2a2a5a; color: #e0e0f0; padding: 6px 10px; border-radius: 6px; font-size: 0.82rem; outline: none; }
+    select:focus, input[type="text"]:focus { border-color: #ff4d6d; }
+    select { min-width: 160px; } input[type="text"] { min-width: 160px; }
+
+    /* ── Buttons ── */
+    .btn { background: #ff4d6d; border: none; color: #fff; padding: 6px 14px; border-radius: 6px; cursor: pointer; font-size: 0.8rem; font-weight: 600; transition: opacity .12s; white-space: nowrap; }
+    .btn:hover { opacity: .82; } .btn:disabled { opacity: .35; cursor: not-allowed; }
+    .btn-outline { background: transparent; border: 1px solid #ff4d6d; color: #ff4d6d; }
+    .btn-outline:hover { background: #ff4d6d; color: #fff; }
+    .btn-ghost { background: #1a1a38; border: 1px solid #2a2a5a; color: #c8c8f0; }
+    .btn-ghost:hover { border-color: #ff4d6d; color: #ff4d6d; }
+    .btn-green { background: #065f46; border: 1px solid #047857; color: #4ade80; }
+    .btn-green:hover { background: #047857; }
+
+    /* ── Table ── */
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
+    thead th { background: #1a1a38; color: #ff4d6d; padding: 8px 10px; text-align: left; font-weight: 600; border-bottom: 1px solid #2a2a5a; }
+    tbody td { padding: 7px 10px; border-bottom: 1px solid #1a1a38; color: #c8c8f0; }
+    tbody tr:hover td { background: #1a1a38; }
+    .rank-gold   td:first-child { color: #fbbf24; font-weight: 700; }
+    .rank-silver td:first-child { color: #d1d5db; font-weight: 700; }
+    .rank-bronze td:first-child { color: #d97706; font-weight: 700; }
+
+    /* ── Liver layout ── */
+    .liver-layout { display: grid; grid-template-columns: 240px 1fr; gap: 12px; }
+    @media(max-width:700px) { .liver-layout { grid-template-columns: 1fr; } }
+    .liver-list { display: flex; flex-direction: column; gap: 5px; max-height: 72vh; overflow-y: auto; padding-right: 3px; }
+    .liver-item { background: #1a1a38; border: 1px solid #2a2a5a; border-radius: 6px; padding: 9px 11px; cursor: pointer; transition: border-color .12s; }
+    .liver-item:hover { border-color: #ff4d6d; }
+    .liver-item.active { border-color: #ff4d6d; background: #1a0a10; }
+    .liver-name { font-size: 0.85rem; font-weight: 600; color: #c8c8f0; }
+    .liver-meta { font-size: 0.69rem; color: #6b7280; margin-top: 2px; }
+    .dot-live { color: #f87171; } .dot-off { color: #4b5563; }
+
+    /* ── Ranking tabs ── */
+    .rank-tabs { display: flex; gap: 6px; margin-bottom: 12px; }
+    .rank-tab { background: #1a1a38; border: 1px solid #2a2a5a; color: #9ca3c8; padding: 5px 12px; border-radius: 6px; cursor: pointer; font-size: 0.8rem; }
+    .rank-tab.active { border-color: #ff4d6d; color: #ff4d6d; background: #1a0a10; }
+
+    /* ── Misc ── */
+    .msg { margin-top: 8px; padding: 8px 12px; border-radius: 6px; background: #1a1a38; font-size: 0.8rem; color: #4ade80; }
+    .msg.error { color: #f87171; }
+    .loading { text-align: center; padding: 28px; color: #4b5563; font-size: 0.82rem; }
+    .empty   { text-align: center; padding: 14px; color: #4b5563; font-size: 0.8rem; }
+    .warn-box { background: #1c1a00; border-left: 3px solid #f59e0b; padding: 8px 12px; border-radius: 4px; margin-bottom: 10px; font-size: 0.76rem; color: #fbbf24; line-height: 1.6; }
+    .section-sub { font-size: 0.85rem; font-weight: 600; color: #ff4d6d; margin: 12px 0 7px; }
+    #refresh-cd { font-size: 0.7rem; color: #4b5563; }
+    .notify-btn { font-size: 0.7rem; padding: 3px 9px; margin-left: 8px; }
+    .progress-bar { height: 6px; background: #1a1a38; border-radius: 3px; margin-top: 4px; overflow: hidden; }
+    .progress-fill { height: 100%; background: #ff4d6d; border-radius: 3px; transition: width .3s; }
+
+    /* ── Live Viewer Modal ── */
+    .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.72); z-index: 1000; align-items: center; justify-content: center; padding: 16px; }
+    .modal-overlay.open { display: flex; }
+    .modal-box { background: #12122a; border: 1px solid #2a2a5a; border-radius: 10px; width: 100%; max-width: 700px; padding: 20px; position: relative; }
+    .modal-close { position: absolute; top: 12px; right: 14px; background: transparent; border: none; color: #6b7280; font-size: 1.3rem; cursor: pointer; line-height: 1; }
+    .modal-close:hover { color: #e0e0f0; }
+    .modal-title { font-size: 0.9rem; font-weight: 700; color: #ff4d6d; margin-bottom: 2px; padding-right: 28px; }
+    .modal-sub { font-size: 0.75rem; color: #6b7280; margin-bottom: 12px; }
+    .modal-chart-wrap { position: relative; height: 260px; margin-top: 10px; }
+
+    /* clickable stream card */
+    .stream-card.clickable { cursor: pointer; transition: border-color .15s, transform .1s; }
+    .stream-card.clickable:hover { border-color: #ff4d6d; transform: translateY(-2px); }
+  </style>
+</head>
+<body>
+
+<!-- ═══════════════ LIVE VIEWER MODAL ═══════════════ -->
+<div class="modal-overlay" id="live-modal" onclick="closeLiveModal(event)">
+  <div class="modal-box">
+    <button class="modal-close" onclick="closeLiveModal()">✕</button>
+    <div class="modal-title" id="modal-stream-title">—</div>
+    <div class="modal-sub" id="modal-stream-sub"></div>
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+      <span id="modal-cd" style="font-size:.72rem;color:#4b5563"></span>
+      <button class="btn btn-outline" style="font-size:.72rem;padding:3px 10px" onclick="manualRefreshLiveChart()">今すぐ更新</button>
+    </div>
+    <div id="modal-stats" class="stats-row"></div>
+    <div class="modal-chart-wrap"><canvas id="live-viewer-chart"></canvas></div>
+    <div id="modal-msg" style="margin-top:10px"></div>
+  </div>
+</div>
+
+<nav class="navbar">
+  <span class="navbar-brand">Live Mgmt</span>
+  <button class="tab-btn active" onclick="showTab('dashboard',this)">ダッシュボード</button>
+  <button class="tab-btn" onclick="showTab('history',this)">配信履歴</button>
+  <button class="tab-btn" onclick="showTab('livers',this)">ライバー別</button>
+  <button class="tab-btn" onclick="showTab('ranking',this)">ランキング</button>
+  <button class="tab-btn" onclick="showTab('users',this)">ユーザー検索</button>
+  <button class="tab-btn" onclick="showTab('setup',this)">設定</button>
+  <div id="conn-dot" title="GAS接続状態"></div>
+</nav>
+
+<!-- ═══════════════ DASHBOARD ═══════════════ -->
+<div id="tab-dashboard" class="tab-content active">
+
+  <!-- サマリーバー -->
+  <div class="summary-bar" id="summary-bar">
+    <div class="sum-card"><div class="sum-val" id="sum-live">—</div><div class="sum-lbl">配信中</div></div>
+    <div class="sum-card"><div class="sum-val" id="sum-viewers">—</div><div class="sum-lbl">総同時接続</div></div>
+    <div class="sum-card"><div class="sum-val" id="sum-gifts">—</div><div class="sum-lbl">投げ銭(B) 合計</div></div>
+    <div class="sum-card"><div class="sum-val" id="sum-scheduled">—</div><div class="sum-lbl">予定配信</div></div>
+  </div>
+
+  <div class="two-col-60">
+    <!-- ライブ中 -->
+    <div class="card">
+      <div class="card-header">
+        <h2>配信中のライブ</h2>
+        <div style="display:flex;align-items:center;gap:8px">
+          <span id="refresh-cd"></span>
+          <button class="btn btn-outline notify-btn" id="notif-btn" onclick="requestNotif()">🔔 通知ON</button>
+          <button class="btn btn-outline" id="dash-btn" onclick="loadLive()">更新</button>
+        </div>
+      </div>
+      <div id="live-streams"><div class="loading">読み込み中...</div></div>
+    </div>
+
+    <!-- 予定配信 -->
+    <div class="card">
+      <div class="card-header">
+        <h2>予定配信</h2>
+        <button class="btn btn-outline" onclick="loadScheduled()">更新</button>
+      </div>
+      <div id="scheduled-list"><div class="loading">読み込み中...</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════ 配信履歴 ═══════════════ -->
+<div id="tab-history" class="tab-content">
+  <div class="card">
+    <div class="card-header">
+      <h2>配信一覧</h2>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-green" onclick="exportHistoryCSV()">CSV 出力</button>
+        <button class="btn btn-outline" onclick="loadHistory()">再読込</button>
+      </div>
+    </div>
+    <div class="controls">
+      <input type="text" id="history-filter" placeholder="タイトル・配信者で絞り込み" oninput="filterHistory()">
+      <select id="history-sort" onchange="filterHistory()">
+        <option value="start-desc">開始日時 新しい順</option>
+        <option value="start-asc">開始日時 古い順</option>
+        <option value="viewers-desc">視聴者数 多い順</option>
+        <option value="gifts-desc">投げ銭 多い順</option>
+        <option value="duration-desc">配信時間 長い順</option>
+      </select>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>配信タイトル</th><th>配信者</th><th>開始(JST)</th><th>終了(JST)</th><th style="text-align:right">視聴者</th><th style="text-align:right">投げ銭(B)</th><th style="text-align:right">分</th><th>状態</th></tr></thead>
+        <tbody id="history-tbody"><tr><td colspan="8" class="loading">読み込み中...</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-header"><h2>同時接続グラフ</h2></div>
+    <div class="controls">
+      <select id="stream-select" onchange="loadViewerChart()">
+        <option value="">配信を選んでください</option>
+      </select>
+    </div>
+    <div id="stream-stats" class="stats-row"></div>
+    <div class="chart-wrap"><canvas id="viewer-chart"></canvas></div>
+  </div>
+</div>
+
+<!-- ═══════════════ ライバー別 ═══════════════ -->
+<div id="tab-livers" class="tab-content">
+  <div class="liver-layout">
+    <div>
+      <div class="card" style="margin-bottom:0">
+        <div class="card-header">
+          <h2>ライバー一覧</h2>
+          <button class="btn btn-outline" onclick="loadLivers()">更新</button>
+        </div>
+        <input type="text" id="liver-filter" placeholder="名前で絞り込み" oninput="filterLivers()" style="width:100%;margin-bottom:8px">
+        <div id="liver-list" class="liver-list"><div class="loading">読み込み中...</div></div>
+      </div>
+    </div>
+    <div id="liver-detail">
+      <div class="card"><div class="empty" style="color:#4b5563">← ライバーを選択してください</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════ ランキング ═══════════════ -->
+<div id="tab-ranking" class="tab-content">
+  <div class="rank-tabs">
+    <div class="rank-tab active" onclick="switchRankTab('streamer',this)">ライバーランキング</div>
+    <div class="rank-tab" onclick="switchRankTab('gifter',this)">ギフターランキング</div>
+  </div>
+
+  <!-- ライバーランキング -->
+  <div id="rank-streamer">
+    <div class="card">
+      <div class="card-header">
+        <h2>ライバーランキング</h2>
+        <div style="display:flex;gap:8px">
+          <select id="rank-metric" onchange="renderStreamerRanking()">
+            <option value="totalGifts">投げ銭(B) 合計</option>
+            <option value="totalSync">シンクロ 合計</option>
+            <option value="totalViewers">累計視聴者</option>
+            <option value="streamingSessions">配信回数</option>
+            <option value="streamingTime">配信時間(分)</option>
+          </select>
+          <button class="btn btn-green" onclick="exportStreamerCSV()">CSV 出力</button>
+          <button class="btn btn-outline" onclick="loadLivers().then && renderStreamerRanking()">更新</button>
+        </div>
+      </div>
+      <div id="streamer-ranking-body">
+        <div class="loading">ライバー別タブを先に開いてデータを読み込んでください</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ギフターランキング -->
+  <div id="rank-gifter" style="display:none">
+    <div class="card">
+      <div class="card-header">
+        <h2>ギフターランキング（累計投げ銭）</h2>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-green" onclick="exportGifterCSV()">CSV 出力</button>
+          <button class="btn btn-outline" onclick="loadGifterRanking()">更新</button>
+        </div>
+      </div>
+      <p style="font-size:.75rem;color:#6b7280;margin-bottom:10px">※「設定 → ギフト・シンクロを同期」を先に実行してください</p>
+      <div id="gifter-ranking-body"><div class="loading">読み込み中...</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════ ユーザー検索 ═══════════════ -->
+<div id="tab-users" class="tab-content">
+  <div class="card">
+    <div class="card-header"><h2>ユーザー名で検索</h2></div>
+    <div class="controls">
+      <input type="text" id="user-search" placeholder="ユーザー名を入力">
+      <button class="btn" onclick="loadUser()">検索</button>
+    </div>
+    <p style="font-size:.75rem;color:#6b7280;margin-bottom:10px">※「設定 → ギフト・シンクロを同期」を先に実行してください</p>
+    <div id="user-results"></div>
+  </div>
+</div>
+
+<!-- ═══════════════ 設定 ═══════════════ -->
+<div id="tab-setup" class="tab-content">
+  <div class="card">
+    <div class="card-header"><h2>GAS URL</h2></div>
+    <div class="controls">
+      <input type="text" id="gas-url-input" style="min-width:440px;font-size:.76rem">
+      <button class="btn" onclick="saveGasUrl()">保存</button>
+      <button class="btn btn-outline" onclick="testPing()">接続テスト</button>
+    </div>
+    <div id="ping-msg"></div>
+  </div>
+  <div class="card">
+    <div class="card-header">
+      <h2>トリガー設定</h2>
+      <button class="btn btn-ghost" onclick="loadTriggerStatus()">状態を確認</button>
+    </div>
+    <!-- トリガー状態パネル -->
+    <div id="trigger-status" style="margin-bottom:12px;padding:10px 14px;background:#0d0d1a;border-radius:6px;font-size:0.8rem">
+      <span style="color:#4b5563">読み込み中...</span>
+    </div>
+    <div class="warn-box">
+      ⚠ トリガーはGASサーバー側で動作します。ページをリロードしても設定は維持されます。<br>
+      ボタンが反応しない場合: GASエディタ → <code>setupTriggers</code> を直接実行して権限を承認してください。
+    </div>
+    <button class="btn" onclick="runSetupTriggers()">トリガーを設定する</button>
+    <div id="trigger-msg"></div>
+  </div>
+  <div class="card">
+    <div class="card-header"><h2>手動実行</h2></div>
+    <div class="warn-box" style="margin-bottom:10px">
+      📁 Driveへの書き込みは「今すぐ視聴者数を記録」を手動実行するか、トリガーが動作することで行われます。<br>
+      配信中にこのボタンを押すと <code>viewer_log.json</code> が生成されます。
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn" onclick="runAction('record','manual-msg','視聴者数を記録しました（Driveのviewer_log.jsonを確認してください）')">今すぐ視聴者数を記録</button>
+      <button class="btn btn-outline" onclick="runAction('sync-gifts','manual-msg','ギフト・シンクロをDriveに保存しました')">ギフト・シンクロを同期</button>
+      <button class="btn btn-ghost" onclick="openDrive()">Driveフォルダを開く</button>
+    </div>
+    <div id="manual-msg"></div>
+  </div>
+  <div class="card">
+    <div class="card-header"><h2>グラフテスト用サンプルデータ</h2></div>
+    <p style="font-size:.78rem;color:#6b7280;margin-bottom:10px">
+      過去3時間分のダミー視聴者数データを生成します。<br>
+      生成後、「配信履歴」タブのグラフで「サンプル配信」を選択すると確認できます。
+    </p>
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-outline" onclick="generateSampleData()">サンプルデータを生成</button>
+      <button class="btn btn-ghost" onclick="deleteSampleData()">サンプルデータを削除</button>
+    </div>
+    <div id="sample-msg"></div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+// ============================================================
+// GAS URL
+// ============================================================
+var GAS_URL = localStorage.getItem('gasUrl') ||
+  'https://script.google.com/macros/s/AKfycbyzD6XrQSmVTeXq5JlpVZJjsCBctqlS0MnUjCdQyGeO0ib-S8rgWK-yt_C5o2B46x6IFw/exec';
+
+// ===== GAS fetch =====
+function gasGet(action, params, timeoutMs) {
+  timeoutMs = timeoutMs || 25000;
+  var url = GAS_URL + '?action=' + encodeURIComponent(action);
+  if (params) Object.keys(params).forEach(function(k) {
+    if (params[k] != null && String(params[k]) !== '')
+      url += '&' + k + '=' + encodeURIComponent(params[k]);
+  });
+  var fp = fetch(url)
+    .then(function(r) { if (!r.ok) throw new Error('HTTP '+r.status); return r.json(); })
+    .then(function(d) { if (d && d.error) throw new Error(d.error); return d; });
+  var tp = new Promise(function(_,rej) {
+    setTimeout(function() { rej(new Error('タイムアウト('+Math.round(timeoutMs/1000)+'秒)')); }, timeoutMs);
+  });
+  return Promise.race([fp, tp]);
+}
+
+// ===== State =====
+var viewerChart        = null;
+var liveViewerChart    = null;
+var currentLiveRecords = [];
+var liveModalTimer     = null;
+var liveModalCd        = 300;
+var liveModalStreamId  = null;
+var countdownTimer = null;
+var countdownSec   = 300;
+var prevLiveIds    = [];
+var allStreams      = [];
+var allLivers      = [];
+var notifEnabled   = false;
+
+// ===== Connection =====
+function setConn(s) {
+  var el = document.getElementById('conn-dot');
+  el.className = s;
+  el.title = s === 'ok' ? '接続OK' : s === 'error' ? 'GASエラー' : '確認中';
+}
+
+// ===== Tab =====
+function showTab(name, btn) {
+  document.querySelectorAll('.tab-content').forEach(function(el){el.classList.remove('active');});
+  document.querySelectorAll('.tab-btn').forEach(function(el){el.classList.remove('active');});
+  document.getElementById('tab-'+name).classList.add('active');
+  if (btn) btn.classList.add('active');
+  // カウントダウンはタブに関係なく常時動作させる（stopCountdown は呼ばない）
+  if (name === 'history'  && allStreams.length === 0) loadHistory();
+  if (name === 'livers'   && allLivers.length  === 0) loadLivers();
+  if (name === 'ranking')  { renderStreamerRanking(); loadGifterRanking(); }
+}
+
+// ===== Ranking tab switch =====
+function switchRankTab(name, el) {
+  document.getElementById('rank-streamer').style.display = name === 'streamer' ? '' : 'none';
+  document.getElementById('rank-gifter').style.display   = name === 'gifter'   ? '' : 'none';
+  document.querySelectorAll('.rank-tab').forEach(function(e){e.classList.remove('active');});
+  el.classList.add('active');
+}
+
+// ===== Dashboard =====
+function loadLive() {
+  var btn = document.getElementById('dash-btn');
+  if (btn) { btn.disabled=true; btn.textContent='取得中...'; }
+
+  gasGet('live').then(function(records) {
+    records = records || [];
+    renderLive(records);
+    updateSummary(records);
+    checkNewStreams(records);
+    setConn('ok');
+    if (btn) { btn.disabled=false; btn.textContent='更新'; }
+    countdownSec = 300;
+  }).catch(function(err) {
+    document.getElementById('live-streams').innerHTML =
+      '<div class="loading" style="color:#f87171">エラー: '+esc(err.message)+'</div>';
+    setConn('error');
+    if (btn) { btn.disabled=false; btn.textContent='更新'; }
+  });
+}
+
+function renderLive(records) {
+  currentLiveRecords = records;
+  var el = document.getElementById('live-streams');
+  if (!records.length) { el.innerHTML='<div class="loading">現在配信中なし</div>'; return; }
+  el.innerHTML = '<div class="stream-grid">'+records.map(function(s, i) {
+    return '<div class="stream-card clickable" data-live-idx="'+i+'">'+
+      '<div class="stream-title">'+esc(s.title)+'</div>'+
+      '<div style="font-size:.72rem;color:#6b7280;margin-bottom:5px">'+esc(s.streamer_name)+'</div>'+
+      '<div class="viewer-count">'+(s.total_current_viewers||0)+'</div>'+
+      '<div class="viewer-label">同時接続</div>'+
+      '<div class="meta">累計 '+(s.total_viewers||0)+' 人 | 開始 '+unixToJST(s.actual_start_time)+
+        '<br>経過 '+(s.duration||0)+' 分 | 投げ銭 '+(s.total_bcoin_from_gift||0)+' B</div>'+
+      '<span class="badge-live">● LIVE</span>'+
+      '<div style="font-size:.65rem;color:#4ade80;margin-top:6px;opacity:.7">▶ クリックでグラフ表示</div>'+
+    '</div>';
+  }).join('')+'</div>';
+
+  // イベント委譲: 文字列でonclickを組み立てると特殊文字で壊れるためここで登録
+  el.querySelectorAll('[data-live-idx]').forEach(function(card) {
+    card.addEventListener('click', function() {
+      var s = currentLiveRecords[parseInt(this.getAttribute('data-live-idx'))];
+      if (s) openLiveViewerChart(s);
+    });
+  });
+}
+
+function updateSummary(records) {
+  var totalViewers = records.reduce(function(s,r){return s+(r.total_current_viewers||0);},0);
+  var totalGifts   = records.reduce(function(s,r){return s+(r.total_bcoin_from_gift||0);},0);
+  document.getElementById('sum-live').textContent    = records.length;
+  document.getElementById('sum-viewers').textContent = totalViewers;
+  document.getElementById('sum-gifts').textContent   = totalGifts;
+}
+
+// ===== ライブ視聴者モーダル =====
+function openLiveViewerChart(s) {
+  liveModalStreamId = s.id;
+  document.getElementById('modal-stream-title').textContent = s.title || '';
+  document.getElementById('modal-stream-sub').textContent =
+    (s.streamer_name || '') +
+    (s.actual_start_time ? ' | 開始 ' + unixToJST(s.actual_start_time) + ' | ' + (s.duration || 0) + ' 分経過' : '');
+  document.getElementById('modal-stats').innerHTML = '<div class="loading">読み込み中...</div>';
+  document.getElementById('modal-msg').textContent = '';
+  document.getElementById('live-modal').classList.add('open');
+  document.body.style.overflow = 'hidden';
+
+  if (liveViewerChart) { liveViewerChart.destroy(); liveViewerChart = null; }
+
+  fetchAndRenderLiveChart();
+  startLiveModalCountdown();
+}
+
+function fetchAndRenderLiveChart() {
+  var statsEl  = document.getElementById('modal-stats');
+  var msgEl    = document.getElementById('modal-msg');
+  var canvas   = document.getElementById('live-viewer-chart');
+
+  gasGet('viewers', { streamId: liveModalStreamId }).then(function(logs) {
+    msgEl.innerHTML = '';
+    if (!logs || !logs.length) {
+      statsEl.innerHTML = '';
+      msgEl.innerHTML =
+        '<div class="empty" style="color:#6b7280">視聴者ログがまだありません。<br>' +
+        '5分ごとのトリガーが動作すると記録が蓄積されます。</div>';
+      return;
+    }
+
+    var counts = logs.map(function(l) { return Number(l.currentViewers) || 0; });
+    var maxV   = Math.max.apply(null, counts);
+    var avgV   = Math.round(counts.reduce(function(a, b) { return a + b; }, 0) / counts.length);
+    var labels = logs.map(function(l) { return String(l.timestamp || '').substring(5, 16); });
+
+    statsEl.innerHTML =
+      '<div class="stat-box"><div class="stat-value">' + counts[counts.length - 1] + '</div><div class="stat-label">最新</div></div>' +
+      '<div class="stat-box"><div class="stat-value">' + maxV + '</div><div class="stat-label">最大</div></div>' +
+      '<div class="stat-box"><div class="stat-value">' + avgV + '</div><div class="stat-label">平均</div></div>' +
+      '<div class="stat-box"><div class="stat-value">' + logs.length + '</div><div class="stat-label">記録数</div></div>';
+
+    if (liveViewerChart) {
+      // チャートを再生成せずデータだけ差し替え
+      liveViewerChart.data.labels = labels;
+      liveViewerChart.data.datasets[0].data = counts;
+      liveViewerChart.data.datasets[0].pointRadius = counts.length > 60 ? 0 : 3;
+      liveViewerChart.update('active');
+    } else {
+      liveViewerChart = new Chart(canvas.getContext('2d'), {
+        type: 'line',
+        data: {
+          labels: labels,
+          datasets: [{
+            label: '同時接続',
+            data: counts,
+            borderColor: '#ff4d6d',
+            backgroundColor: 'rgba(255,77,109,0.12)',
+            borderWidth: 2,
+            pointRadius: counts.length > 60 ? 0 : 3,
+            tension: 0.3,
+            fill: true
+          }]
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          animation: { duration: 400 },
+          interaction: { mode: 'index', intersect: false },
+          scales: {
+            x: { ticks: { color: '#6b7280', maxRotation: 45, maxTicksLimit: 12 }, grid: { color: '#1e1e4a' } },
+            y: { ticks: { color: '#6b7280' }, grid: { color: '#1e1e4a' }, beginAtZero: true }
+          },
+          plugins: {
+            legend: { labels: { color: '#c8c8f0' } },
+            tooltip: { backgroundColor: '#12122a', borderColor: '#2a2a5a', borderWidth: 1, titleColor: '#ff4d6d', bodyColor: '#e0e0f0' }
+          }
+        }
+      });
+    }
+  }).catch(function(err) {
+    statsEl.innerHTML = '';
+    msgEl.innerHTML = '<div class="empty" style="color:#f87171">エラー: ' + esc(err.message) + '</div>';
+  });
+}
+
+function startLiveModalCountdown() {
+  stopLiveModalCountdown();
+  liveModalCd = 300;
+  updateLiveCdDisplay();
+  liveModalTimer = setInterval(function() {
+    liveModalCd--;
+    updateLiveCdDisplay();
+    if (liveModalCd <= 0) {
+      liveModalCd = 300;
+      fetchAndRenderLiveChart();
+    }
+  }, 1000);
+}
+
+function stopLiveModalCountdown() {
+  if (liveModalTimer) { clearInterval(liveModalTimer); liveModalTimer = null; }
+}
+
+function updateLiveCdDisplay() {
+  var el = document.getElementById('modal-cd');
+  if (!el) return;
+  var m = Math.floor(liveModalCd / 60), s = liveModalCd % 60;
+  el.textContent = '自動更新まで ' + m + ':' + (s < 10 ? '0' : '') + s;
+}
+
+function manualRefreshLiveChart() {
+  liveModalCd = 300;
+  fetchAndRenderLiveChart();
+  startLiveModalCountdown();
+}
+
+function closeLiveModal(event) {
+  if (event && event.target !== document.getElementById('live-modal')) return;
+  document.getElementById('live-modal').classList.remove('open');
+  document.body.style.overflow = '';
+  stopLiveModalCountdown();
+  if (liveViewerChart) { liveViewerChart.destroy(); liveViewerChart = null; }
+}
+
+// ===== 予定配信 =====
+function loadScheduled() {
+  var el = document.getElementById('scheduled-list');
+  el.innerHTML = '<div class="loading">読み込み中...</div>';
+  gasGet('scheduled').then(function(list) {
+    list = list || [];
+    document.getElementById('sum-scheduled').textContent = list.length;
+    if (!list.length) { el.innerHTML='<div class="empty">予定配信なし</div>'; return; }
+    el.innerHTML = list.map(function(s) {
+      var diff = s.plannedStartUnix ? Math.round((s.plannedStartUnix - Date.now()/1000)/60) : null;
+      var until = diff !== null
+        ? (diff > 0 ? diff+'分後' : '開始済み')
+        : '';
+      return '<div class="stream-card" style="margin-bottom:6px">'+
+        '<span class="badge-new">SCHEDULED</span> '+
+        '<div class="stream-title" style="margin-top:5px">'+esc(s.title)+'</div>'+
+        '<div class="meta">配信者: '+esc(s.streamerName)+
+          (s.plannedStartTime ? ' | 開始予定: '+esc(s.plannedStartTime) : '')+
+          (until ? ' <strong style="color:#fbbf24">('+until+')</strong>' : '')+
+        '</div></div>';
+    }).join('');
+  }).catch(function(err) {
+    el.innerHTML = '<div class="empty" style="color:#f87171">エラー: '+esc(err.message)+'</div>';
+  });
+}
+
+// ===== ブラウザ通知 =====
+function requestNotif() {
+  if (!('Notification' in window)) { alert('このブラウザは通知非対応です'); return; }
+  Notification.requestPermission().then(function(perm) {
+    notifEnabled = perm === 'granted';
+    var btn = document.getElementById('notif-btn');
+    btn.textContent = notifEnabled ? '🔔 通知ON' : '🔕 通知OFF';
+    btn.style.borderColor = notifEnabled ? '#4ade80' : '';
+    btn.style.color = notifEnabled ? '#4ade80' : '';
+  });
+}
+
+function checkNewStreams(records) {
+  if (!notifEnabled) return;
+  var ids = records.map(function(r){return r.id;});
+  ids.forEach(function(id) {
+    if (prevLiveIds.indexOf(id) === -1) {
+      var s = records.find(function(r){return r.id===id;});
+      if (s) new Notification('🔴 ライブ開始', {
+        body: s.streamer_name+': '+s.title,
+        icon: ''
+      });
+    }
+  });
+  prevLiveIds = ids;
+}
+
+// ===== カウントダウン =====
+function startCountdown() {
+  stopCountdown();
+  countdownTimer = setInterval(function() {
+    countdownSec--;
+    var m=Math.floor(countdownSec/60), s=countdownSec%60;
+    var el=document.getElementById('refresh-cd');
+    if(el) el.textContent='更新まで '+m+':'+(s<10?'0':'')+s;
+    if (countdownSec<=0) { loadLive(); countdownSec=300; }
+  },1000);
+}
+function stopCountdown() { if(countdownTimer){clearInterval(countdownTimer);countdownTimer=null;} }
+
+// ===== 配信履歴 =====
+function loadHistory() {
+  document.getElementById('history-tbody').innerHTML='<tr><td colspan="8" class="loading">読み込み中...</td></tr>';
+  gasGet('streams',{},30000).then(function(s) {
+    allStreams=s||[];
+    setConn('ok');
+    filterHistory();
+    buildStreamSelect(allStreams);
+  }).catch(function(err) {
+    document.getElementById('history-tbody').innerHTML=
+      '<tr><td colspan="8" style="color:#f87171;text-align:center">エラー: '+esc(err.message)+'</td></tr>';
+    setConn('error');
+  });
+}
+
+function filterHistory() {
+  var q    = (document.getElementById('history-filter').value||'').toLowerCase();
+  var sort = document.getElementById('history-sort').value;
+  var list = q ? allStreams.filter(function(s) {
+    return (s.title||'').toLowerCase().indexOf(q)!==-1 ||
+           (s.streamerName||'').toLowerCase().indexOf(q)!==-1;
+  }) : allStreams.slice();
+
+  list.sort(function(a,b) {
+    if (sort==='start-asc')     return (a.startTime||'').localeCompare(b.startTime||'');
+    if (sort==='viewers-desc')  return (b.totalViewers||0)-(a.totalViewers||0);
+    if (sort==='gifts-desc')    return (b.totalGifts||0)-(a.totalGifts||0);
+    if (sort==='duration-desc') return (b.duration||0)-(a.duration||0);
+    return (b.startTime||'').localeCompare(a.startTime||''); // start-desc default
+  });
+
+  renderHistory(list);
+}
+
+function renderHistory(list) {
+  var tbody = document.getElementById('history-tbody');
+  if (!list.length) { tbody.innerHTML='<tr><td colspan="8" class="empty">データなし</td></tr>'; return; }
+  tbody.innerHTML = list.map(function(s) {
+    var badge = s.status==='STREAMING'
+      ? '<span style="color:#f87171;font-weight:700;font-size:.7rem">● LIVE</span>'
+      : '<span style="color:#4b5563;font-size:.7rem">終了</span>';
+    return '<tr onclick="selectStream(\''+s.id+'\')" style="cursor:pointer">'+
+      '<td>'+esc(s.title)+'</td><td>'+esc(s.streamerName)+'</td>'+
+      '<td style="white-space:nowrap">'+esc(s.startTime)+'</td>'+
+      '<td style="white-space:nowrap">'+esc(s.endTime)+'</td>'+
+      '<td style="text-align:right">'+(s.totalViewers||0)+'</td>'+
+      '<td style="text-align:right;color:#4ade80">'+(s.totalGifts||0)+'</td>'+
+      '<td style="text-align:right">'+(s.duration||0)+'</td>'+
+      '<td>'+badge+'</td></tr>';
+  }).join('');
+}
+
+function buildStreamSelect(streams) {
+  var sel=document.getElementById('stream-select');
+  sel.innerHTML='<option value="">視聴者グラフを表示する配信を選択 ('+streams.length+'件)</option>';
+  streams.forEach(function(s) {
+    var o=document.createElement('option');
+    o.value=s.id;
+    o.textContent=(s.status==='STREAMING'?'[LIVE] ':'')+s.title+' — '+s.streamerName;
+    sel.appendChild(o);
+  });
+}
+
+function selectStream(id) {
+  document.getElementById('stream-select').value=id;
+  loadViewerChart();
+  document.getElementById('stream-select').scrollIntoView({behavior:'smooth',block:'center'});
+}
+
+function loadViewerChart() {
+  var sid=document.getElementById('stream-select').value;
+  var se=document.getElementById('stream-stats');
+  if(!sid){se.innerHTML='';return;}
+  se.innerHTML='<div class="loading">読み込み中...</div>';
+  gasGet('viewers',{streamId:sid}).then(function(logs) {
+    if(!logs||!logs.length){
+      se.innerHTML='<div class="empty">視聴者ログなし（5分ごとのトリガー記録が必要です）</div>';
+      if(viewerChart){viewerChart.destroy();viewerChart=null;}
+      return;
+    }
+    var counts=logs.map(function(l){return Number(l.currentViewers)||0;});
+    var maxV=Math.max.apply(null,counts);
+    var avgV=Math.round(counts.reduce(function(a,b){return a+b;},0)/counts.length);
+    se.innerHTML=
+      '<div class="stat-box"><div class="stat-value">'+counts[counts.length-1]+'</div><div class="stat-label">最新</div></div>'+
+      '<div class="stat-box"><div class="stat-value">'+maxV+'</div><div class="stat-label">最大</div></div>'+
+      '<div class="stat-box"><div class="stat-value">'+avgV+'</div><div class="stat-label">平均</div></div>'+
+      '<div class="stat-box"><div class="stat-value">'+logs.length+'</div><div class="stat-label">記録数</div></div>';
+    if(viewerChart) viewerChart.destroy();
+    viewerChart=new Chart(document.getElementById('viewer-chart').getContext('2d'),{
+      type:'line',
+      data:{labels:logs.map(function(l){return String(l.timestamp||'').substring(5,16);}),
+            datasets:[{label:'同時接続',data:counts,borderColor:'#ff4d6d',
+              backgroundColor:'rgba(255,77,109,0.1)',borderWidth:2,
+              pointRadius:counts.length>60?0:3,tension:0.3,fill:true}]},
+      options:{responsive:true,maintainAspectRatio:false,
+        interaction:{mode:'index',intersect:false},
+        scales:{x:{ticks:{color:'#6b7280',maxRotation:45,maxTicksLimit:20},grid:{color:'#1e1e4a'}},
+                y:{ticks:{color:'#6b7280'},grid:{color:'#1e1e4a'},beginAtZero:true}},
+        plugins:{legend:{labels:{color:'#c8c8f0'}},
+          tooltip:{backgroundColor:'#12122a',borderColor:'#2a2a5a',borderWidth:1,
+                   titleColor:'#ff4d6d',bodyColor:'#e0e0f0'}}}
+    });
+  }).catch(function(err){se.innerHTML='<div class="empty" style="color:#f87171">エラー: '+esc(err.message)+'</div>';});
+}
+
+// CSV 出力
+function exportHistoryCSV() {
+  if (!allStreams.length) { alert('先にデータを読み込んでください'); return; }
+  var rows=[['配信ID','タイトル','配信者','開始時刻','終了時刻','総視聴者','投げ銭(B)','シンクロ','時間(分)','状態']];
+  allStreams.forEach(function(s) {
+    rows.push([s.id,s.title,s.streamerName,s.startTime,s.endTime,s.totalViewers,s.totalGifts,s.totalSync,s.duration,s.status]);
+  });
+  downloadCSV(rows, 'stream_history_'+dateStr()+'.csv');
+}
+
+// ===== ライバー別 =====
+function loadLivers() {
+  document.getElementById('liver-list').innerHTML='<div class="loading">読み込み中...</div>';
+  return gasGet('streamers',{},30000).then(function(livers) {
+    allLivers=livers||[];
+    setConn('ok');
+    renderLiverList(allLivers);
+  }).catch(function(err) {
+    document.getElementById('liver-list').innerHTML='<div class="loading" style="color:#f87171">エラー: '+esc(err.message)+'</div>';
+    setConn('error');
+  });
+}
+
+function filterLivers() {
+  var q=(document.getElementById('liver-filter').value||'').toLowerCase();
+  renderLiverList(q?allLivers.filter(function(l){return (l.username||'').toLowerCase().indexOf(q)!==-1;}):allLivers);
+}
+
+function renderLiverList(livers) {
+  var el=document.getElementById('liver-list');
+  if (!livers.length){el.innerHTML='<div class="empty">データなし</div>';return;}
+  el.innerHTML=livers.map(function(l) {
+    var live=l.streamerStatus==='LIVE';
+    return '<div class="liver-item" onclick="loadLiverDetail(\''+esc(l.userId)+'\',\''+esc(l.username)+'\')" data-uid="'+esc(l.userId)+'">'+
+      '<div class="liver-name">'+esc(l.username)+'</div>'+
+      '<div class="liver-meta">'+
+        (live?'<span class="dot-live">● LIVE</span>':'<span class="dot-off">● OFF</span>')+
+        ' 視聴者 '+(l.totalViewers||0)+' | '+(l.streamingSessions||0)+'回</div>'+
+    '</div>';
+  }).join('');
+}
+
+function loadLiverDetail(userId, username) {
+  document.querySelectorAll('.liver-item').forEach(function(el){el.classList.remove('active');});
+  var item=document.querySelector('[data-uid="'+userId+'"]');
+  if(item) item.classList.add('active');
+  var detail=document.getElementById('liver-detail');
+  detail.innerHTML='<div class="card"><div class="loading">読み込み中...</div></div>';
+
+  gasGet('liver-history',{userId:userId},30000).then(function(data) {
+    var streams=data.streams||[], gifts=data.gifts||[], syncs=data.syncs||[];
+    var totalGifts=gifts.reduce(function(s,g){return s+(g.bcoinValue||0);},0);
+    var totalSync =syncs.reduce(function(s,x){return s+(x.amount||0);},0);
+    var maxSenders=getTopSenders(gifts,5);
+
+    // 投げ銭ランキング（このライバーへ）
+    var topHtml='';
+    if (maxSenders.length) {
+      topHtml='<div class="section-sub">このライバーへの投げ銭ランキング</div>'+
+        '<div class="table-wrap"><table><thead><tr><th>順位</th><th>送信者</th><th>合計(B)</th><th>回数</th><th>割合</th></tr></thead><tbody>'+
+        maxSenders.map(function(s,i){
+          var pct=totalGifts>0?Math.round(s.total/totalGifts*100):0;
+          return '<tr class="'+(i===0?'rank-gold':i===1?'rank-silver':i===2?'rank-bronze':'')+'">'+
+            '<td>'+(i+1)+'</td><td>'+esc(s.name)+'</td>'+
+            '<td style="color:#4ade80">'+s.total+' B</td><td>'+s.count+'</td>'+
+            '<td><div style="display:flex;align-items:center;gap:6px"><span>'+pct+'%</span>'+
+              '<div class="progress-bar" style="width:80px"><div class="progress-fill" style="width:'+pct+'%"></div></div></div></td></tr>';
+        }).join('')+'</tbody></table></div>';
+    }
+
+    detail.innerHTML='<div class="card">'+
+      '<div class="card-header"><h2>'+esc(username)+'</h2>'+
+        '<button class="btn btn-green" onclick="exportLiverCSV(\''+esc(username)+'\')">CSV 出力</button></div>'+
+      '<div class="stats-row">'+
+        '<div class="stat-box"><div class="stat-value">'+streams.length+'</div><div class="stat-label">配信回数</div></div>'+
+        '<div class="stat-box"><div class="stat-value">'+totalGifts+' B</div><div class="stat-label">投げ銭合計</div></div>'+
+        '<div class="stat-box"><div class="stat-value">'+totalSync+'</div><div class="stat-label">シンクロ合計</div></div>'+
+        '<div class="stat-box"><div class="stat-value">'+gifts.length+'</div><div class="stat-label">ギフト件数</div></div>'+
+      '</div>'+
+
+      topHtml+
+
+      '<div class="section-sub">配信アーカイブ ('+streams.length+'件)</div>'+
+      (streams.length?'<div class="table-wrap"><table><thead><tr><th>タイトル</th><th>開始(JST)</th><th>終了(JST)</th><th style="text-align:right">視聴者</th><th style="text-align:right">投げ銭(B)</th><th style="text-align:right">分</th></tr></thead><tbody>'+
+        streams.map(function(s){
+          return '<tr><td>'+esc(s.title)+'</td><td style="white-space:nowrap">'+esc(s.startTime)+'</td><td style="white-space:nowrap">'+esc(s.endTime)+'</td>'+
+            '<td style="text-align:right">'+(s.totalViewers||0)+'</td><td style="text-align:right;color:#4ade80">'+(s.totalGifts||0)+'</td>'+
+            '<td style="text-align:right">'+(s.duration||0)+'</td></tr>';
+        }).join('')+'</tbody></table></div>'
+      :'<div class="empty">配信履歴なし</div>')+
+
+      '<div class="section-sub">ギフト履歴 ('+gifts.length+'件)</div>'+
+      (gifts.length?'<div class="table-wrap"><table><thead><tr><th>配信</th><th>ギフト名</th><th>送信者</th><th>Bコイン</th><th>時刻(JST)</th></tr></thead><tbody>'+
+        gifts.map(function(g){return '<tr><td>'+esc(g.title)+'</td><td>'+esc(g.giftName)+'</td><td>'+esc(g.senderName)+'</td><td style="color:#4ade80">'+g.bcoinValue+' B</td><td>'+esc(g.giftedAt)+'</td></tr>';}).join('')+
+        '</tbody></table></div>'
+      :'<div class="empty">ギフトなし</div>')+
+
+      '<div class="section-sub">シンクロ履歴 ('+syncs.length+'件)</div>'+
+      (syncs.length?'<div class="table-wrap"><table><thead><tr><th>配信</th><th>シンクロ者</th><th>金額</th><th>手数料</th><th>景品</th></tr></thead><tbody>'+
+        syncs.map(function(s){return '<tr><td>'+esc(s.title)+'</td><td>'+esc(s.synchronizerName)+'</td><td>'+s.amount+'</td><td>'+s.amountFee+'</td><td>'+esc(s.prizeItemName)+'</td></tr>';}).join('')+
+        '</tbody></table></div>'
+      :'<div class="empty">シンクロなし</div>')+
+
+    '</div>';
+
+    // CSV用データ保存
+    window._liverData = { username:username, streams:streams, gifts:gifts, syncs:syncs };
+    setConn('ok');
+  }).catch(function(err){
+    detail.innerHTML='<div class="card"><div class="loading" style="color:#f87171">エラー: '+esc(err.message)+'</div></div>';
+    setConn('error');
+  });
+}
+
+function getTopSenders(gifts, n) {
+  var map={};
+  gifts.forEach(function(g){
+    var k=g.senderName||'Unknown';
+    if(!map[k]) map[k]={name:k,total:0,count:0};
+    map[k].total+=g.bcoinValue||0;
+    map[k].count++;
+  });
+  return Object.values(map).sort(function(a,b){return b.total-a.total;}).slice(0,n);
+}
+
+function exportLiverCSV(username) {
+  var d = window._liverData;
+  if (!d) { alert('データがありません'); return; }
+  var rows=[['配信タイトル','開始時刻','終了時刻','総視聴者','投げ銭(B)','シンクロ','時間(分)']];
+  d.streams.forEach(function(s){rows.push([s.title,s.startTime,s.endTime,s.totalViewers,s.totalGifts,s.totalSync,s.duration]);});
+  rows.push([],[' ─ ギフト履歴 ─'],[' 配信','ギフト名','送信者','Bコイン','時刻']);
+  d.gifts.forEach(function(g){rows.push([g.title,g.giftName,g.senderName,g.bcoinValue,g.giftedAt]);});
+  downloadCSV(rows, d.username+'_'+dateStr()+'.csv');
+}
+
+// ===== ランキング =====
+function renderStreamerRanking() {
+  var el=document.getElementById('streamer-ranking-body');
+  if (!allLivers.length) {
+    el.innerHTML='<div class="loading">ライバー別タブを先に開いてデータを読み込んでください</div>';
+    return;
+  }
+  var metric=document.getElementById('rank-metric').value;
+  var sorted=allLivers.slice().sort(function(a,b){return (b[metric]||0)-(a[metric]||0);});
+  var maxVal=sorted.length?sorted[0][metric]||0:1;
+  var labels={'totalGifts':'投げ銭(B)','totalSync':'シンクロ','totalViewers':'累計視聴者','streamingSessions':'配信回数','streamingTime':'配信時間(分)'};
+  el.innerHTML='<div class="table-wrap"><table><thead><tr><th>順位</th><th>ライバー名</th><th>'+labels[metric]+'</th><th>配信回数</th><th>累計視聴者</th><th>グラフ</th></tr></thead><tbody>'+
+    sorted.map(function(l,i){
+      var val=l[metric]||0;
+      var pct=maxVal>0?Math.round(val/maxVal*100):0;
+      return '<tr class="'+(i===0?'rank-gold':i===1?'rank-silver':i===2?'rank-bronze':'')+'">'+
+        '<td>'+(i+1)+'</td><td>'+esc(l.username)+'</td>'+
+        '<td style="color:#4ade80;font-weight:600">'+val.toLocaleString()+'</td>'+
+        '<td>'+(l.streamingSessions||0)+'</td><td>'+(l.totalViewers||0)+'</td>'+
+        '<td><div class="progress-bar" style="width:120px"><div class="progress-fill" style="width:'+pct+'%"></div></div></td></tr>';
+    }).join('')+'</tbody></table></div>';
+}
+
+function exportStreamerCSV() {
+  if (!allLivers.length) { alert('先にライバー別タブを開いてください'); return; }
+  var rows=[['ライバー名','ユーザーID','配信回数','累計視聴者','投げ銭(B)','シンクロ','配信時間(分)','ステータス']];
+  allLivers.slice().sort(function(a,b){return (b.totalGifts||0)-(a.totalGifts||0);}).forEach(function(l){
+    rows.push([l.username,l.userId,l.streamingSessions,l.totalViewers,l.totalGifts,l.totalSync,l.streamingTime,l.streamerStatus]);
+  });
+  downloadCSV(rows,'streamer_ranking_'+dateStr()+'.csv');
+}
+
+function loadGifterRanking() {
+  var el=document.getElementById('gifter-ranking-body');
+  el.innerHTML='<div class="loading">読み込み中...</div>';
+  gasGet('gifter-ranking',{},20000).then(function(data) {
+    var list=data.ranking||[];
+    if (!list.length){
+      el.innerHTML='<div class="empty">データなし<br><small style="color:#6b7280">「設定 → ギフト・シンクロを同期」を実行してください</small></div>';
+      return;
+    }
+    var maxVal=list[0].totalBcoin||1;
+    el.innerHTML='<div class="table-wrap"><table><thead><tr><th>順位</th><th>ユーザー名</th><th>合計(B)</th><th>ギフト回数</th><th>グラフ</th></tr></thead><tbody>'+
+      list.map(function(g,i){
+        var pct=Math.round((g.totalBcoin||0)/maxVal*100);
+        return '<tr class="'+(i===0?'rank-gold':i===1?'rank-silver':i===2?'rank-bronze':'')+'">'+
+          '<td>'+(i+1)+'</td><td>'+esc(g.name)+'</td>'+
+          '<td style="color:#4ade80;font-weight:600">'+(g.totalBcoin||0).toLocaleString()+' B</td>'+
+          '<td>'+(g.count||0)+'</td>'+
+          '<td><div class="progress-bar" style="width:120px"><div class="progress-fill" style="width:'+pct+'%"></div></div></td></tr>';
+      }).join('')+'</tbody></table></div>';
+    setConn('ok');
+  }).catch(function(err){
+    el.innerHTML='<div class="empty" style="color:#f87171">エラー: '+esc(err.message)+'</div>';
+    setConn('error');
+  });
+}
+
+function exportGifterCSV() {
+  // Re-fetch and download
+  gasGet('gifter-ranking',{},20000).then(function(data) {
+    var list=data.ranking||[];
+    if (!list.length) { alert('データがありません'); return; }
+    var rows=[['順位','ユーザー名','合計Bコイン','ギフト回数']];
+    list.forEach(function(g,i){rows.push([i+1,g.name,g.totalBcoin,g.count]);});
+    downloadCSV(rows,'gifter_ranking_'+dateStr()+'.csv');
+  }).catch(function(e){alert('エラー: '+e.message);});
+}
+
+// ===== ユーザー検索 =====
+function loadUser() {
+  var name=document.getElementById('user-search').value.trim();
+  var el=document.getElementById('user-results');
+  if (!name){el.innerHTML='';return;}
+  el.innerHTML='<div class="loading">検索中...</div>';
+  gasGet('user',{name:name}).then(function(data) {
+    var gifts=data.gifts||[], syncs=data.syncs||[];
+    var html='';
+    if (gifts.length) {
+      var total=gifts.reduce(function(s,g){return s+(g.bcoinValue||0);},0);
+      html+='<div class="section-sub">ギフト ('+gifts.length+'件 / 合計 '+total+' B)</div>'+
+        '<div class="table-wrap"><table><thead><tr><th>配信</th><th>ギフト名</th><th>Bコイン</th><th>時刻</th></tr></thead><tbody>'+
+        gifts.map(function(g){return '<tr><td>'+esc(g.title)+'</td><td>'+esc(g.giftName)+'</td><td style="color:#4ade80">'+g.bcoinValue+' B</td><td>'+esc(g.giftedAt)+'</td></tr>';}).join('')+
+        '</tbody></table></div>';
+    }
+    if (syncs.length) {
+      html+='<div class="section-sub" style="margin-top:12px">シンクロ ('+syncs.length+'件)</div>'+
+        '<div class="table-wrap"><table><thead><tr><th>配信</th><th>金額</th><th>手数料</th></tr></thead><tbody>'+
+        syncs.map(function(s){return '<tr><td>'+esc(s.title)+'</td><td>'+s.amount+'</td><td>'+s.amountFee+'</td></tr>';}).join('')+
+        '</tbody></table></div>';
+    }
+    el.innerHTML=html||'<div class="empty">「'+esc(name)+'」が見つかりませんでした</div>';
+  }).catch(function(err){el.innerHTML='<div class="empty" style="color:#f87171">エラー: '+esc(err.message)+'</div>';});
+}
+
+// ===== Setup =====
+
+// トリガー状態をGASから取得して表示
+function loadTriggerStatus() {
+  var el = document.getElementById('trigger-status');
+  el.innerHTML = '<span style="color:#4b5563">確認中...</span>';
+  gasGet('check-triggers', {}, 10000).then(function(data) {
+    var triggers = data.triggers || [];
+    if (!triggers.length) {
+      el.innerHTML = '<span style="color:#f87171">⚠ トリガー未設定</span> — 「トリガーを設定する」ボタンを押してください。';
+      return;
+    }
+    var names = { recordViewers: '視聴者数記録 (5分ごと)', syncGiftLogs: 'ギフト同期 (1時間ごと)' };
+    el.innerHTML = '<span style="color:#4ade80">✓ トリガー稼働中</span> ' +
+      triggers.map(function(t) {
+        return '<span style="background:#064e3b;color:#4ade80;padding:2px 8px;border-radius:10px;font-size:.75rem;margin-left:6px">' +
+          (names[t.funcName] || t.funcName) + '</span>';
+      }).join('');
+  }).catch(function() {
+    el.innerHTML = '<span style="color:#6b7280">GAS接続後に確認できます</span>';
+  });
+}
+
+function runSetupTriggers() {
+  var el = document.getElementById('trigger-msg');
+  el.className = 'msg'; el.textContent = '設定中...';
+  gasGet('triggers', {}, 30000).then(function() {
+    el.textContent = 'トリガーを設定しました（5分ごと視聴者記録 / 1時間ごとギフト同期）';
+    loadTriggerStatus(); // 設定後に状態を再確認
+  }).catch(function(err) {
+    el.className = 'msg error';
+    el.textContent = 'エラー: ' + err.message + ' — GASエディタから setupTriggers を直接実行してください。';
+  });
+}
+
+// ===== サンプルデータ =====
+var SAMPLE_STREAM = {
+  id: 'SAMPLE_001', title: 'サンプル配信（グラフテスト用）',
+  streamerName: 'テストライバー', status: 'FINISHED',
+  totalViewers: 0, totalGifts: 0, totalSync: 0, duration: 180
+};
+
+function generateSampleData() {
+  var el = document.getElementById('sample-msg');
+  el.className = 'msg'; el.textContent = '生成中...';
+  gasGet('sample-data', {}, 30000).then(function(data) {
+    el.textContent = 'サンプルデータを生成しました（' + data.points + '件 / ' +
+      data.startTime + ' 〜 ' + data.endTime + '）';
+    SAMPLE_STREAM.startTime = data.startTime;
+    SAMPLE_STREAM.endTime   = data.endTime;
+    // 配信履歴の一覧にサンプルを追加
+    allStreams = allStreams.filter(function(s) { return s.id !== 'SAMPLE_001'; });
+    allStreams.unshift(SAMPLE_STREAM);
+    buildStreamSelect(allStreams);
+    // 配信履歴タブに移動してグラフを表示
+    showTab('history', document.querySelectorAll('.tab-btn')[2]);
+    document.getElementById('stream-select').value = 'SAMPLE_001';
+    loadViewerChart();
+  }).catch(function(err) {
+    el.className = 'msg error'; el.textContent = 'エラー: ' + err.message;
+  });
+}
+
+function deleteSampleData() {
+  var el = document.getElementById('sample-msg');
+  el.className = 'msg'; el.textContent = '削除中...';
+  gasGet('delete-sample', {}, 15000).then(function(data) {
+    el.textContent = 'サンプルデータを削除しました（' + (data.removed || 0) + '件）';
+    allStreams = allStreams.filter(function(s) { return s.id !== 'SAMPLE_001'; });
+    buildStreamSelect(allStreams);
+    document.getElementById('stream-select').value = '';
+    document.getElementById('stream-stats').innerHTML = '';
+    if (viewerChart) { viewerChart.destroy(); viewerChart = null; }
+  }).catch(function(err) { el.className = 'msg error'; el.textContent = 'エラー: ' + err.message; });
+}
+
+function runAction(action,msgId,okText) {
+  var el=document.getElementById(msgId);
+  el.className='msg'; el.textContent='実行中...';
+  gasGet(action,{},120000).then(function(){el.textContent=okText;})
+    .catch(function(err){el.className='msg error';el.textContent='エラー: '+err.message;});
+}
+function testPing() {
+  var el=document.getElementById('ping-msg');
+  el.className='msg'; el.textContent='確認中...';
+  var t=Date.now();
+  gasGet('ping').then(function(r){
+    el.textContent='接続OK ('+(Date.now()-t)+'ms) — GAS時刻: '+(r.time||'');
+    setConn('ok');
+  }).catch(function(err){el.className='msg error';el.textContent='エラー: '+err.message;setConn('error');});
+}
+function saveGasUrl() {
+  var v=document.getElementById('gas-url-input').value.trim();
+  if(!v) return;
+  GAS_URL=v; localStorage.setItem('gasUrl',v);
+  var el=document.getElementById('ping-msg');
+  el.className='msg'; el.textContent='URLを保存しました。接続テストで確認してください。';
+}
+function openDrive() {
+  gasGet('driveUrl').then(function(r){window.open(r.url,'_blank');})
+    .catch(function(e){alert('エラー: '+e.message);});
+}
+
+// ===== CSV ユーティリティ =====
+function downloadCSV(rows, filename) {
+  var bom='﻿'; // UTF-8 BOM for Excel
+  var csv=bom+rows.map(function(row){
+    return row.map(function(c){
+      var s=String(c==null?'':c);
+      return (s.indexOf(',')!==-1||s.indexOf('"')!==-1||s.indexOf('\n')!==-1)
+        ? '"'+s.replace(/"/g,'""')+'"' : s;
+    }).join(',');
+  }).join('\r\n');
+  var a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8;'}));
+  a.download=filename; a.click();
+}
+function dateStr() {
+  return new Date().toISOString().substring(0,10).replace(/-/g,'');
+}
+
+// ===== Helpers =====
+function esc(s) {
+  if(s==null) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function unixToJST(u) {
+  if(!u) return '-';
+  return new Date((u+9*3600)*1000).toISOString().replace('T',' ').substring(0,16)+' JST';
+}
+
+// Object.values polyfill
+if (!Object.values) Object.values=function(o){return Object.keys(o).map(function(k){return o[k];});};
+
+// ===== キーボード =====
+document.addEventListener('keydown',function(e){
+  if(e.key==='Escape') { closeLiveModal(); return; }
+  if(e.key!=='Enter') return;
+  var id=e.target.id;
+  if(id==='user-search') loadUser();
+  if(id==='history-filter') filterHistory();
+  if(id==='liver-filter') filterLivers();
+});
+
+// ===== 通知の初期状態チェック =====
+(function() {
+  if ('Notification' in window && Notification.permission === 'granted') {
+    notifEnabled = true;
+    var btn = document.getElementById('notif-btn');
+    if (btn) { btn.textContent='🔔 通知ON'; btn.style.borderColor='#4ade80'; btn.style.color='#4ade80'; }
+  }
+})();
+
+// ===== 起動 =====
+document.getElementById('gas-url-input').value = GAS_URL;
+loadLive();
+loadScheduled();
+startCountdown();
+loadTriggerStatus(); // 設定タブ用にバックグラウンドで取得
+</script>
+</body>
+</html>
