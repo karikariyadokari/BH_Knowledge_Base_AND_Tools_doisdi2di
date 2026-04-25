@@ -211,10 +211,14 @@ function debounce(fn, ms) {
 }
 
 function todayLogicalDate() {
-  const jst = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Tokyo' }));
-  const d   = new Date(jst);
-  if (jst.getHours() < 4) d.setDate(d.getDate() - 1);
-  return d.toISOString().slice(0, 10);
+  // toLocaleString+toISOString はブラウザのローカルTZに依存してズレるため、
+  // UTC+9 を直接加算して JST の日付・時刻を UTC メソッドで読み取る
+  const jst = new Date(Date.now() + 9 * 3600 * 1000);
+  if (jst.getUTCHours() < 4) jst.setUTCDate(jst.getUTCDate() - 1);
+  const y = jst.getUTCFullYear();
+  const m = String(jst.getUTCMonth() + 1).padStart(2, '0');
+  const d = String(jst.getUTCDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
 }
 
 async function callGAS(action, params = {}, ms = DEFAULT_TIMEOUT) {
